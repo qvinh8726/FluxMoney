@@ -37,7 +37,16 @@ interface State {
   exportData: () => string;
 }
 
-const supabase = createClient();
+// Khởi tạo lười qua Proxy: client chỉ được tạo khi có property được truy cập
+// (tức lúc chạy thật trong trình duyệt), KHÔNG tạo lúc build/prerender.
+let _client: ReturnType<typeof createClient> | null = null;
+const supabase = new Proxy({} as ReturnType<typeof createClient>, {
+  get(_target, prop) {
+    _client ??= createClient();
+    // @ts-expect-error - forward động tới client thật
+    return _client[prop];
+  },
+});
 
 export const useStore = create<State>()((set, get) => ({
   userId: null,
