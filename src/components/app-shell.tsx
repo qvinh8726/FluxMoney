@@ -125,6 +125,7 @@ function SidebarContent({ pathname }: { pathname: string }) {
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
+    useStore.getState().clear();
     router.push("/login");
     router.refresh();
   }

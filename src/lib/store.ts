@@ -70,6 +70,7 @@ interface State {
 
   setBaseCurrency: (c: string) => Promise<void>;
   exportData: () => string;
+  clear: () => void;
 }
 
 // Khởi tạo lười qua Proxy: client chỉ được tạo khi có property được truy cập
@@ -96,7 +97,7 @@ export const useStore = create<State>()((set, get) => ({
   loading: false,
 
   loadAll: async () => {
-    if (get().loading) return;
+    if (get().loading || get().loaded) return;
     set({ loading: true });
     const {
       data: { user },
@@ -481,6 +482,20 @@ export const useStore = create<State>()((set, get) => ({
       2
     );
   },
+
+  clear: () =>
+    set({
+      userId: null,
+      baseCurrency: "VND",
+      accounts: [],
+      categories: [],
+      transactions: [],
+      budgets: [],
+      transfers: [],
+      recurringRules: [],
+      loaded: false,
+      loading: false,
+    }),
 }));
 
 // ---- Selector helpers (thuần) ----
