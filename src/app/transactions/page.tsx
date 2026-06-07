@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { TransactionDialog } from "@/components/transaction-dialog";
 import { TransferDialog } from "@/components/transfer-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
 import { formatCurrency } from "@/lib/utils";
@@ -32,6 +33,9 @@ export default function TransactionsPage() {
   const [trOpen, setTrOpen] = React.useState(false);
   const [editingTx, setEditingTx] = React.useState<Transaction | null>(null);
   const [editingTr, setEditingTr] = React.useState<Transfer | null>(null);
+  const [toDelete, setToDelete] = React.useState<
+    { kind: "tx"; id: string } | { kind: "tr"; id: string } | null
+  >(null);
   const [q, setQ] = React.useState("");
   const [typeFilter, setTypeFilter] = React.useState<"all" | TxType | "transfer">("all");
 
@@ -153,7 +157,7 @@ export default function TransactionsPage() {
                       setEditingTx(it.tx);
                       setTxOpen(true);
                     }}
-                    onDelete={() => deleteTransaction(it.tx.id)}
+                    onDelete={() => setToDelete({ kind: "tx", id: it.tx.id })}
                   />
                 ) : (
                   <TrRow
@@ -166,7 +170,7 @@ export default function TransactionsPage() {
                       setEditingTr(it.tr);
                       setTrOpen(true);
                     }}
-                    onDelete={() => deleteTransfer(it.tr.id)}
+                    onDelete={() => setToDelete({ kind: "tr", id: it.tr.id })}
                   />
                 )
               )}
@@ -177,6 +181,20 @@ export default function TransactionsPage() {
 
       <TransactionDialog open={txOpen} onClose={() => setTxOpen(false)} editing={editingTx} />
       <TransferDialog open={trOpen} onClose={() => setTrOpen(false)} editing={editingTr} />
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        onClose={() => setToDelete(null)}
+        onConfirm={() => {
+          if (!toDelete) return;
+          if (toDelete.kind === "tx") deleteTransaction(toDelete.id);
+          else deleteTransfer(toDelete.id);
+        }}
+        title={toDelete?.kind === "tr" ? "Xóa chuyển khoản này?" : "Xóa giao dịch này?"}
+        description="Hành động không thể hoàn tác."
+        confirmLabel="Xóa"
+        destructive
+      />
     </div>
   );
 }

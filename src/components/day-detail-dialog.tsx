@@ -5,6 +5,7 @@ import { Pencil, Trash2, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { formatCurrency } from "@/lib/utils";
@@ -25,6 +26,8 @@ export function DayDetailDialog({ open, onClose, dateKey, onAdd, onEdit }: Props
   const baseCurrency = useStore((s) => s.baseCurrency);
   const deleteTransaction = useStore((s) => s.deleteTransaction);
 
+  const [toDelete, setToDelete] = React.useState<string | null>(null);
+
   if (!dateKey) return null;
 
   const dayTx = transactions
@@ -41,7 +44,8 @@ export function DayDetailDialog({ open, onClose, dateKey, onAdd, onEdit }: Props
   const title = format(new Date(dateKey), "EEEE, dd/MM/yyyy", { locale: vi });
 
   return (
-    <Dialog open={open} onClose={onClose} title={title}>
+    <>
+      <Dialog open={open} onClose={onClose} title={title}>
       <div className="space-y-4">
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-lg bg-income/10 p-3">
@@ -121,7 +125,7 @@ export function DayDetailDialog({ open, onClose, dateKey, onAdd, onEdit }: Props
                       size="icon"
                       className="size-8 text-destructive hover:text-destructive"
                       aria-label="Xóa"
-                      onClick={() => deleteTransaction(t.id)}
+                      onClick={() => setToDelete(t.id)}
                     >
                       <Trash2 className="size-4" />
                     </Button>
@@ -132,6 +136,19 @@ export function DayDetailDialog({ open, onClose, dateKey, onAdd, onEdit }: Props
           </ul>
         )}
       </div>
-    </Dialog>
+      </Dialog>
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        onClose={() => setToDelete(null)}
+        onConfirm={() => {
+          if (toDelete) deleteTransaction(toDelete);
+        }}
+        title="Xóa giao dịch này?"
+        description="Hành động không thể hoàn tác."
+        confirmLabel="Xóa"
+        destructive
+      />
+    </>
   );
 }

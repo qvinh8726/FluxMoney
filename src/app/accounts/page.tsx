@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { accountBalance, useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
 import { formatCurrency } from "@/lib/utils";
@@ -41,20 +42,16 @@ export default function AccountsPage() {
 
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Account | null>(null);
+  const [toDelete, setToDelete] = React.useState<Account | null>(null);
 
   const total = accounts.reduce(
     (sum, a) => sum + accountBalance(a, transactions, transfers),
     0
   );
 
-  function remove(a: Account) {
-    const count = transactions.filter((t) => t.accountId === a.id).length;
-    const msg =
-      count > 0
-        ? `Xóa ví "${a.name}"? ${count} giao dịch liên kết cũng sẽ bị xóa. Hành động không thể hoàn tác.`
-        : `Xóa ví "${a.name}"?`;
-    if (confirm(msg)) deleteAccount(a.id);
-  }
+  const deleteCount = toDelete
+    ? transactions.filter((t) => t.accountId === toDelete.id).length
+    : 0;
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
@@ -123,7 +120,7 @@ export default function AccountsPage() {
                       size="icon"
                       className="size-7 text-destructive hover:text-destructive"
                       aria-label="Xóa"
-                      onClick={() => remove(a)}
+                      onClick={() => setToDelete(a)}
                     >
                       <Trash2 className="size-4" />
                     </Button>
@@ -144,6 +141,22 @@ export default function AccountsPage() {
           else addAccount({ ...data, currency: baseCurrency });
           setOpen(false);
         }}
+      />
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        onClose={() => setToDelete(null)}
+        onConfirm={() => {
+          if (toDelete) deleteAccount(toDelete.id);
+        }}
+        title={`Xóa ví "${toDelete?.name ?? ""}"?`}
+        description={
+          deleteCount > 0
+            ? `${deleteCount} giao dịch liên kết cũng sẽ bị xóa. Hành động không thể hoàn tác.`
+            : "Hành động không thể hoàn tác."
+        }
+        confirmLabel="Xóa"
+        destructive
       />
     </div>
   );

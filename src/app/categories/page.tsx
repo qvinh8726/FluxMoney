@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
 import type { Category, TxType } from "@/lib/types";
@@ -21,18 +22,10 @@ export default function CategoriesPage() {
 
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Category | null>(null);
+  const [toDelete, setToDelete] = React.useState<Category | null>(null);
 
   const income = categories.filter((c) => c.type === "income");
   const expense = categories.filter((c) => c.type === "expense");
-
-  function remove(c: Category) {
-    if (
-      confirm(
-        `Xóa danh mục "${c.name}"? Giao dịch liên quan sẽ chuyển về "Chưa phân loại".`
-      )
-    )
-      deleteCategory(c.id);
-  }
 
   function save(data: Omit<Category, "id">) {
     // Chống trùng tên cùng loại (không phân biệt hoa thường).
@@ -77,7 +70,7 @@ export default function CategoriesPage() {
             setEditing(c);
             setOpen(true);
           }}
-          onRemove={remove}
+          onRemove={setToDelete}
         />
         <CategoryGroup
           title="Danh mục chi"
@@ -87,7 +80,7 @@ export default function CategoriesPage() {
             setEditing(c);
             setOpen(true);
           }}
-          onRemove={remove}
+          onRemove={setToDelete}
         />
       </div>
 
@@ -96,6 +89,18 @@ export default function CategoriesPage() {
         onClose={() => setOpen(false)}
         editing={editing}
         onSave={save}
+      />
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        onClose={() => setToDelete(null)}
+        onConfirm={() => {
+          if (toDelete) deleteCategory(toDelete.id);
+        }}
+        title={`Xóa danh mục "${toDelete?.name ?? ""}"?`}
+        description='Giao dịch liên quan sẽ chuyển về "Chưa phân loại". Ngân sách của danh mục này cũng bị xóa.'
+        confirmLabel="Xóa"
+        destructive
       />
     </div>
   );

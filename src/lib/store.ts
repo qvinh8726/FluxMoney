@@ -85,6 +85,10 @@ const supabase = new Proxy({} as ReturnType<typeof createClient>, {
   },
 });
 
+// Chống chạy generateDueRecurring chồng nhau (loadAll + addRecurring, hoặc
+// nhiều tab). Cờ ở module-level vì không cần kích hoạt render.
+let _generating = false;
+
 export const useStore = create<State>()((set, get) => ({
   userId: null,
   baseCurrency: "VND",
@@ -458,67 +462,83 @@ export const useStore = create<State>()((set, get) => ({
   generateDueRecurring: async () => {
     const { recurringRules, userId, baseCurrency } = get();
     if (!userId || recurringRules.length === 0) return;
-    const today = vnTodayKey();
+    if (_generating) return;
+    _generating = true;
+    try {
+      const today = vnTodayKey();
 
-    const newRows: {
-      user_id: string;
-      type: TxType;
-      amount: number;
-      date: string;
-      account_id: string;
-      category_id: string | null;
-      note: string | null;
-      currency: string;
-    }[] = [];
-    const ruleUpdates: { id: string; last: string }[] = [];
+      const newRows: {
+        user_id: string;
+        type: TxType;
+        amount: number;
+        date: string;
+        account_id: string;
+        category_id: string | null;
+        note: string | null;
+        currency: string;
+        source_rule_id: string;
+      }[] = [];
+      const ruleUpdates: { id: string; last: string }[] = [];
 
-    for (const rule of recurringRules) {
-      if (rule.paused) continue;
-      let cursor = rule.lastGeneratedDate
-        ? nextOccurrence(rule.lastGeneratedDate, rule.frequency)
-        : rule.startDate;
-      let last = rule.lastGeneratedDate;
-      let guard = 0;
-      while (cursor <= today && guard < 1000) {
-        if (rule.endDate && cursor > rule.endDate) break;
-        newRows.push({
-          user_id: userId,
-          type: rule.type,
-          amount: rule.amount,
-          date: cursor,
-          account_id: rule.accountId,
-          category_id: rule.categoryId,
-          note: rule.note ?? "Định kỳ",
-          currency: baseCurrency,
-        });
-        last = cursor;
-        cursor = nextOccurrence(cursor, rule.frequency);
-        guard++;
+      for (const rule of recurringRules) {
+        if (rule.paused) continue;
+        let cursor = rule.lastGeneratedDate
+          ? nextOccurrence(rule.lastGeneratedDate, rule.frequency)
+          : rule.startDate;
+        let last = rule.lastGeneratedDate;
+        let guard = 0;
+        while (cursor <= today && guard < 1000) {
+          if (rule.endDate && cursor > rule.endDate) break;
+          newRows.push({
+            user_id: userId,
+            type: rule.type,
+            amount: rule.amount,
+            date: cursor,
+            account_id: rule.accountId,
+            category_id: rule.categoryId,
+            note: rule.note ?? "Định kỳ",
+            currency: baseCurrency,
+            source_rule_id: rule.id,
+          });
+          last = cursor;
+          cursor = nextOccurrence(cursor, rule.frequency);
+          guard++;
+        }
+        if (last && last !== rule.lastGeneratedDate) {
+          ruleUpdates.push({ id: rule.id, last });
+        }
       }
-      if (last && last !== rule.lastGeneratedDate) {
-        ruleUpdates.push({ id: rule.id, last });
-      }
+
+      if (newRows.length === 0) return;
+
+      // upsert + ignoreDuplicates: unique (source_rule_id, date) ở DB chặn trùng
+      // tận gốc nếu nhiều phiên cùng chạy; chỉ chèn các giao dịch chưa tồn tại.
+      const { data } = await supabase
+        .from("transactions")
+        .upsert(newRows, {
+          onConflict: "source_rule_id,date",
+          ignoreDuplicates: true,
+        })
+        .select();
+      await Promise.all(
+        ruleUpdates.map((u) =>
+          supabase
+            .from("recurring_rules")
+            .update({ last_generated_date: u.last })
+            .eq("id", u.id)
+        )
+      );
+
+      set((s) => ({
+        transactions: [...(data ?? []).map(toTransaction), ...s.transactions],
+        recurringRules: s.recurringRules.map((r) => {
+          const u = ruleUpdates.find((x) => x.id === r.id);
+          return u ? { ...r, lastGeneratedDate: u.last } : r;
+        }),
+      }));
+    } finally {
+      _generating = false;
     }
-
-    if (newRows.length === 0) return;
-
-    const { data } = await supabase.from("transactions").insert(newRows).select();
-    await Promise.all(
-      ruleUpdates.map((u) =>
-        supabase
-          .from("recurring_rules")
-          .update({ last_generated_date: u.last })
-          .eq("id", u.id)
-      )
-    );
-
-    set((s) => ({
-      transactions: [...(data ?? []).map(toTransaction), ...s.transactions],
-      recurringRules: s.recurringRules.map((r) => {
-        const u = ruleUpdates.find((x) => x.id === r.id);
-        return u ? { ...r, lastGeneratedDate: u.last } : r;
-      }),
-    }));
   },
 
   // ---------- Misc ----------

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
 import { cn, formatCurrency, toDateKey, vnTodayKey } from "@/lib/utils";
@@ -50,6 +51,7 @@ export default function RecurringPage() {
 
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<RecurringRule | null>(null);
+  const [toDelete, setToDelete] = React.useState<RecurringRule | null>(null);
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -140,11 +142,7 @@ export default function RecurringPage() {
                       size="icon"
                       className="size-8 text-destructive hover:text-destructive"
                       aria-label="Xóa"
-                      onClick={() => {
-                        if (confirm("Xóa quy tắc định kỳ này? Các giao dịch đã sinh trước đó vẫn được giữ.")) {
-                          deleteRecurring(r.id);
-                        }
-                      }}
+                      onClick={() => setToDelete(r)}
                     >
                       <Trash2 className="size-4" />
                     </Button>
@@ -157,6 +155,18 @@ export default function RecurringPage() {
       )}
 
       <RecurringDialog open={open} onClose={() => setOpen(false)} editing={editing} />
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        onClose={() => setToDelete(null)}
+        onConfirm={() => {
+          if (toDelete) deleteRecurring(toDelete.id);
+        }}
+        title="Xóa quy tắc định kỳ này?"
+        description="Các giao dịch đã sinh trước đó vẫn được giữ lại."
+        confirmLabel="Xóa"
+        destructive
+      />
     </div>
   );
 }
