@@ -12,9 +12,9 @@ import {
   BarChart3,
   Sparkles,
   Settings,
+  Repeat,
   Menu,
   X,
-  CircleDollarSign,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,7 @@ const nav = [
   { href: "/accounts", label: "Ví / Tài khoản", icon: Wallet },
   { href: "/categories", label: "Danh mục", icon: Tags },
   { href: "/budgets", label: "Ngân sách", icon: PiggyBank },
+  { href: "/recurring", label: "Định kỳ", icon: Repeat },
   { href: "/reports", label: "Báo cáo", icon: BarChart3 },
   { href: "/ai", label: "AI Phân tích", icon: Sparkles },
   { href: "/settings", label: "Cài đặt", icon: Settings },
@@ -89,7 +90,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {open ? <X /> : <Menu />}
           </Button>
           <div className="flex items-center gap-2 lg:hidden">
-            <CircleDollarSign className="size-5 text-primary" />
+            <img src="/logo.png" alt="FluxMoney" className="size-6 rounded" />
             <span className="font-semibold">FluxMoney</span>
           </div>
           <div className="ml-auto flex items-center gap-1">
@@ -131,7 +132,7 @@ function SidebarContent({ pathname }: { pathname: string }) {
   return (
     <>
       <div className="flex h-14 items-center gap-2 border-b px-5">
-        <CircleDollarSign className="size-6 text-primary" />
+        <img src="/logo.png" alt="FluxMoney" className="size-7 rounded" />
         <span className="text-lg font-bold tracking-tight">FluxMoney</span>
       </div>
       <nav className="flex flex-1 flex-col gap-1 p-3">

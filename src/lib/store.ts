@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import type { Account, Budget, Category, Transaction, Transfer, TxType } from "./types";
+import type { RecurringRule, RecurringFrequency } from "./types";
 import { createClient } from "./supabase/client";
 import {
   toAccount,
@@ -9,7 +10,24 @@ import {
   toCategory,
   toTransaction,
   toTransfer,
+  toRecurring,
 } from "./mappers";
+import { vnTodayKey, toDateKey } from "./utils";
+import { addDays, addWeeks, addMonths, addYears, parseISO } from "date-fns";
+
+/** Mốc kỳ kế tiếp của một ngày theo tần suất (trả về YYYY-MM-DD). */
+function nextOccurrence(dateStr: string, freq: RecurringFrequency): string {
+  const d = parseISO(dateStr);
+  const n =
+    freq === "daily"
+      ? addDays(d, 1)
+      : freq === "weekly"
+      ? addWeeks(d, 1)
+      : freq === "monthly"
+      ? addMonths(d, 1)
+      : addYears(d, 1);
+  return toDateKey(n);
+}
 
 interface State {
   userId: string | null;
@@ -19,6 +37,7 @@ interface State {
   transactions: Transaction[];
   budgets: Budget[];
   transfers: Transfer[];
+  recurringRules: RecurringRule[];
   loaded: boolean;
   loading: boolean;
 
@@ -44,6 +63,11 @@ interface State {
   updateTransfer: (id: string, patch: Partial<Transfer>) => Promise<void>;
   deleteTransfer: (id: string) => Promise<void>;
 
+  addRecurring: (r: Omit<RecurringRule, "id" | "createdAt">) => Promise<void>;
+  updateRecurring: (id: string, patch: Partial<RecurringRule>) => Promise<void>;
+  deleteRecurring: (id: string) => Promise<void>;
+  generateDueRecurring: () => Promise<void>;
+
   setBaseCurrency: (c: string) => Promise<void>;
   exportData: () => string;
 }
@@ -67,6 +91,7 @@ export const useStore = create<State>()((set, get) => ({
   transactions: [],
   budgets: [],
   transfers: [],
+  recurringRules: [],
   loaded: false,
   loading: false,
 
@@ -81,14 +106,16 @@ export const useStore = create<State>()((set, get) => ({
       return;
     }
 
-    const [profileRes, accRes, catRes, txRes, budRes, trfRes] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-      supabase.from("accounts").select("*").order("created_at"),
-      supabase.from("categories").select("*").order("created_at"),
-      supabase.from("transactions").select("*").order("date", { ascending: false }),
-      supabase.from("budgets").select("*").order("created_at"),
-      supabase.from("transfers").select("*").order("date", { ascending: false }),
-    ]);
+    const [profileRes, accRes, catRes, txRes, budRes, trfRes, recRes] =
+      await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+        supabase.from("accounts").select("*").order("created_at"),
+        supabase.from("categories").select("*").order("created_at"),
+        supabase.from("transactions").select("*").order("date", { ascending: false }),
+        supabase.from("budgets").select("*").order("created_at"),
+        supabase.from("transfers").select("*").order("date", { ascending: false }),
+        supabase.from("recurring_rules").select("*").order("created_at"),
+      ]);
 
     set({
       userId: user.id,
@@ -98,9 +125,13 @@ export const useStore = create<State>()((set, get) => ({
       transactions: (txRes.data ?? []).map(toTransaction),
       budgets: (budRes.data ?? []).map(toBudget),
       transfers: (trfRes.data ?? []).map(toTransfer),
+      recurringRules: (recRes.data ?? []).map(toRecurring),
       loaded: true,
       loading: false,
     });
+
+    // Tự sinh các giao dịch định kỳ tới hạn (không chặn render).
+    get().generateDueRecurring();
   },
 
   // ---------- Transactions ----------
@@ -302,6 +333,126 @@ export const useStore = create<State>()((set, get) => ({
   deleteTransfer: async (id) => {
     await supabase.from("transfers").delete().eq("id", id);
     set((s) => ({ transfers: s.transfers.filter((t) => t.id !== id) }));
+  },
+
+  // ---------- Recurring rules ----------
+  addRecurring: async (r) => {
+    const userId = get().userId;
+    if (!userId) return;
+    const { data } = await supabase
+      .from("recurring_rules")
+      .insert({
+        user_id: userId,
+        type: r.type,
+        amount: r.amount,
+        account_id: r.accountId,
+        category_id: r.categoryId,
+        frequency: r.frequency,
+        start_date: r.startDate,
+        end_date: r.endDate ?? null,
+        note: r.note ?? null,
+        paused: r.paused ?? false,
+      })
+      .select()
+      .single();
+    if (data) {
+      set((s) => ({ recurringRules: [...s.recurringRules, toRecurring(data)] }));
+      get().generateDueRecurring();
+    }
+  },
+  updateRecurring: async (id, patch) => {
+    const { data } = await supabase
+      .from("recurring_rules")
+      .update({
+        type: patch.type,
+        amount: patch.amount,
+        account_id: patch.accountId,
+        category_id: patch.categoryId,
+        frequency: patch.frequency,
+        start_date: patch.startDate,
+        end_date: patch.endDate ?? null,
+        note: patch.note ?? null,
+        paused: patch.paused,
+      })
+      .eq("id", id)
+      .select()
+      .single();
+    if (data)
+      set((s) => ({
+        recurringRules: s.recurringRules.map((r) =>
+          r.id === id ? toRecurring(data) : r
+        ),
+      }));
+  },
+  deleteRecurring: async (id) => {
+    await supabase.from("recurring_rules").delete().eq("id", id);
+    set((s) => ({ recurringRules: s.recurringRules.filter((r) => r.id !== id) }));
+  },
+
+  generateDueRecurring: async () => {
+    const { recurringRules, userId, baseCurrency } = get();
+    if (!userId || recurringRules.length === 0) return;
+    const today = vnTodayKey();
+
+    const newRows: {
+      user_id: string;
+      type: TxType;
+      amount: number;
+      date: string;
+      account_id: string;
+      category_id: string | null;
+      note: string | null;
+      currency: string;
+    }[] = [];
+    const ruleUpdates: { id: string; last: string }[] = [];
+
+    for (const rule of recurringRules) {
+      if (rule.paused) continue;
+      let cursor = rule.lastGeneratedDate
+        ? nextOccurrence(rule.lastGeneratedDate, rule.frequency)
+        : rule.startDate;
+      let last = rule.lastGeneratedDate;
+      let guard = 0;
+      while (cursor <= today && guard < 1000) {
+        if (rule.endDate && cursor > rule.endDate) break;
+        newRows.push({
+          user_id: userId,
+          type: rule.type,
+          amount: rule.amount,
+          date: cursor,
+          account_id: rule.accountId,
+          category_id: rule.categoryId,
+          note: rule.note ?? "Định kỳ",
+          currency: baseCurrency,
+        });
+        last = cursor;
+        cursor = nextOccurrence(cursor, rule.frequency);
+        guard++;
+      }
+      if (last && last !== rule.lastGeneratedDate) {
+        ruleUpdates.push({ id: rule.id, last });
+      }
+    }
+
+    if (newRows.length === 0) return;
+
+    const { data } = await supabase.from("transactions").insert(newRows).select();
+    await Promise.all(
+      ruleUpdates.map((u) =>
+        supabase
+          .from("recurring_rules")
+          .update({ last_generated_date: u.last })
+          .eq("id", u.id)
+      )
+    );
+
+    set((s) => ({
+      transactions: [...(data ?? []).map(toTransaction), ...s.transactions],
+      recurringRules: s.recurringRules.map((r) => {
+        const u = ruleUpdates.find((x) => x.id === r.id);
+        return u ? { ...r, lastGeneratedDate: u.last } : r;
+      }),
+    }));
   },
 
   // ---------- Misc ----------

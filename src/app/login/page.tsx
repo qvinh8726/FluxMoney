@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CircleDollarSign, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
@@ -30,7 +30,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardContent className="flex flex-col items-center gap-6 p-8 text-center">
           <div className="flex items-center gap-2">
-            <CircleDollarSign className="size-8 text-primary" />
+            <img src="/logo.png" alt="FluxMoney" className="size-10 rounded-xl" />
             <span className="text-2xl font-bold tracking-tight">FluxMoney</span>
           </div>
           <div>

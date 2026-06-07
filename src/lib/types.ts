@@ -58,6 +58,7 @@ export interface RecurringRule {
   endDate?: string;
   note?: string;
   paused: boolean;
+  lastGeneratedDate?: string;
   createdAt: string;
 }
 

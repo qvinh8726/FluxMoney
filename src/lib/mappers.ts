@@ -1,5 +1,12 @@
 // Chuyển đổi giữa hàng dữ liệu DB (snake_case) và kiểu app (camelCase).
-import type { Account, Budget, Category, Transaction, Transfer } from "./types";
+import type {
+  Account,
+  Budget,
+  Category,
+  Transaction,
+  Transfer,
+  RecurringRule,
+} from "./types";
 import type {
   AccountRow,
   BudgetRow,
@@ -62,5 +69,35 @@ export const toTransfer = (r: TransferRowLike): Transfer => ({
   amount: Number(r.amount),
   date: r.date,
   note: r.note ?? undefined,
+  createdAt: r.created_at,
+});
+
+interface RecurringRowLike {
+  id: string;
+  type: "income" | "expense";
+  amount: number | string;
+  account_id: string;
+  category_id: string | null;
+  frequency: "daily" | "weekly" | "monthly" | "yearly";
+  start_date: string;
+  end_date: string | null;
+  note: string | null;
+  paused: boolean;
+  last_generated_date: string | null;
+  created_at: string;
+}
+
+export const toRecurring = (r: RecurringRowLike): RecurringRule => ({
+  id: r.id,
+  type: r.type,
+  amount: Number(r.amount),
+  accountId: r.account_id,
+  categoryId: r.category_id,
+  frequency: r.frequency,
+  startDate: r.start_date,
+  endDate: r.end_date ?? undefined,
+  note: r.note ?? undefined,
+  paused: r.paused,
+  lastGeneratedDate: r.last_generated_date ?? undefined,
   createdAt: r.created_at,
 });
