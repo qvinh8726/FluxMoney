@@ -1,0 +1,227 @@
+"use client";
+
+import * as React from "react";
+import { Dialog } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { cn, toDateKey } from "@/lib/utils";
+import { useStore } from "@/lib/store";
+import type { Transaction, TxType } from "@/lib/types";
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  /** Giao dịch đang sửa; nếu không có là tạo mới. */
+  editing?: Transaction | null;
+  /** Ngày mặc định khi tạo mới (YYYY-MM-DD). */
+  defaultDate?: string;
+}
+
+const MAX_AMOUNT = 999_999_999.99;
+
+export function TransactionDialog({ open, onClose, editing, defaultDate }: Props) {
+  const accounts = useStore((s) => s.accounts);
+  const categories = useStore((s) => s.categories);
+  const addTransaction = useStore((s) => s.addTransaction);
+  const updateTransaction = useStore((s) => s.updateTransaction);
+
+  const [type, setType] = React.useState<TxType>("expense");
+  const [amount, setAmount] = React.useState("");
+  const [date, setDate] = React.useState(defaultDate ?? toDateKey(new Date()));
+  const [accountId, setAccountId] = React.useState("");
+  const [categoryId, setCategoryId] = React.useState<string>("");
+  const [note, setNote] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
+
+  // Khởi tạo giá trị mỗi khi mở dialog.
+  React.useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setType(editing.type);
+      setAmount(String(editing.amount));
+      setDate(editing.date);
+      setAccountId(editing.accountId);
+      setCategoryId(editing.categoryId ?? "");
+      setNote(editing.note ?? "");
+    } else {
+      setType("expense");
+      setAmount("");
+      setDate(defaultDate ?? toDateKey(new Date()));
+      setAccountId(accounts[0]?.id ?? "");
+      setCategoryId("");
+      setNote("");
+    }
+    setError(null);
+  }, [open, editing, defaultDate, accounts]);
+
+  const visibleCategories = categories.filter((c) => c.type === type);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const value = Number(amount);
+
+    if (!amount || Number.isNaN(value)) {
+      setError("Vui lòng nhập số tiền hợp lệ.");
+      return;
+    }
+    if (value < 0.01 || value > MAX_AMOUNT) {
+      setError("Số tiền phải từ 0,01 đến 999.999.999,99.");
+      return;
+    }
+    if (!accountId) {
+      setError("Vui lòng chọn ví/tài khoản.");
+      return;
+    }
+    if (date > toDateKey(new Date())) {
+      setError("Ngày giao dịch không được ở tương lai.");
+      return;
+    }
+
+    const payload = {
+      type,
+      amount: Math.round(value * 100) / 100,
+      date,
+      accountId,
+      categoryId: categoryId || null,
+      note: note.trim() || undefined,
+    };
+
+    if (editing) {
+      updateTransaction(editing.id, payload);
+    } else {
+      addTransaction(payload);
+    }
+    onClose();
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={editing ? "Sửa giao dịch" : "Thêm giao dịch"}
+      description="Ghi nhận một khoản thu hoặc chi."
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Loại thu/chi */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setType("expense");
+              setCategoryId("");
+            }}
+            className={cn(
+              "rounded-lg border py-2.5 text-sm font-medium transition-colors cursor-pointer",
+              type === "expense"
+                ? "border-expense bg-expense/10 text-expense"
+                : "hover:bg-accent"
+            )}
+          >
+            Chi tiền
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setType("income");
+              setCategoryId("");
+            }}
+            className={cn(
+              "rounded-lg border py-2.5 text-sm font-medium transition-colors cursor-pointer",
+              type === "income"
+                ? "border-income bg-income/10 text-income"
+                : "hover:bg-accent"
+            )}
+          >
+            Thu tiền
+          </button>
+        </div>
+
+        <div>
+          <Label htmlFor="amount">Số tiền</Label>
+          <Input
+            id="amount"
+            inputMode="decimal"
+            type="number"
+            step="0.01"
+            min="0.01"
+            placeholder="0"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            autoFocus
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="date">Ngày</Label>
+            <Input
+              id="date"
+              type="date"
+              max={toDateKey(new Date())}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="account">Ví / Tài khoản</Label>
+            <Select
+              id="account"
+              value={accountId}
+              onChange={(e) => setAccountId(e.target.value)}
+            >
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
+
+        <div>
+          <Label htmlFor="category">Danh mục</Label>
+          <Select
+            id="category"
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+          >
+            <option value="">Chưa phân loại</option>
+            {visibleCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="note">Ghi chú</Label>
+          <Textarea
+            id="note"
+            placeholder="Tùy chọn"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </div>
+
+        {error && (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button type="submit" variant={type === "income" ? "income" : "expense"}>
+            {editing ? "Lưu thay đổi" : "Thêm giao dịch"}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
