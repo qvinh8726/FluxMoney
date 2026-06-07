@@ -5,7 +5,7 @@ import {
   isWithinInterval,
   subMonths,
 } from "date-fns";
-import type { Account, Budget, Category, Transaction } from "./types";
+import type { Account, Budget, Category, Transaction, Transfer } from "./types";
 import { accountBalance } from "./store";
 import { periodInterval } from "./utils";
 import { formatCurrency } from "./utils";
@@ -44,7 +44,8 @@ export function analyze(
   transactions: Transaction[],
   accounts: Account[],
   categories: Category[],
-  budgets: Budget[]
+  budgets: Budget[],
+  transfers: Transfer[] = []
 ): Analysis {
   const now = new Date();
 
@@ -68,7 +69,7 @@ export function analyze(
   const projectedExpense = dailyAvg * daysInMonth;
 
   const totalBalance = accounts.reduce(
-    (s, a) => s + accountBalance(a, transactions),
+    (s, a) => s + accountBalance(a, transactions, transfers),
     0
   );
 

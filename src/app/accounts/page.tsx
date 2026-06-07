@@ -33,6 +33,7 @@ export default function AccountsPage() {
   const hydrated = useHydrated();
   const accounts = useStore((s) => s.accounts);
   const transactions = useStore((s) => s.transactions);
+  const transfers = useStore((s) => s.transfers);
   const baseCurrency = useStore((s) => s.baseCurrency);
   const addAccount = useStore((s) => s.addAccount);
   const updateAccount = useStore((s) => s.updateAccount);
@@ -42,7 +43,7 @@ export default function AccountsPage() {
   const [editing, setEditing] = React.useState<Account | null>(null);
 
   const total = accounts.reduce(
-    (sum, a) => sum + accountBalance(a, transactions),
+    (sum, a) => sum + accountBalance(a, transactions, transfers),
     0
   );
 
@@ -86,7 +87,7 @@ export default function AccountsPage() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {accounts.map((a) => {
           const Icon = KIND_ICON[a.kind];
-          const bal = accountBalance(a, transactions);
+          const bal = accountBalance(a, transactions, transfers);
           return (
             <Card key={a.id}>
               <CardContent className="flex items-center gap-3 p-4">

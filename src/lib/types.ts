@@ -60,3 +60,13 @@ export interface RecurringRule {
   paused: boolean;
   createdAt: string;
 }
+
+export interface Transfer {
+  id: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  note?: string;
+  createdAt: string;
+}

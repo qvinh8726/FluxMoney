@@ -73,3 +73,14 @@ export function toDateKey(date: Date): string {
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
+
+/**
+ * "Hôm nay" theo múi giờ Việt Nam (UTC+7), trả về YYYY-MM-DD.
+ * Không phụ thuộc timezone của trình duyệt/server — luôn lấy mốc ngày VN.
+ */
+export function vnTodayKey(): string {
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  const vn = new Date(utcMs + 7 * 3600000);
+  return toDateKey(vn);
+}

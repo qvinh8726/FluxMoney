@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { cn, toDateKey } from "@/lib/utils";
+import { cn, vnTodayKey } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import type { Transaction, TxType } from "@/lib/types";
 
@@ -30,7 +30,7 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
 
   const [type, setType] = React.useState<TxType>("expense");
   const [amount, setAmount] = React.useState("");
-  const [date, setDate] = React.useState(defaultDate ?? toDateKey(new Date()));
+  const [date, setDate] = React.useState(defaultDate ?? vnTodayKey());
   const [accountId, setAccountId] = React.useState("");
   const [categoryId, setCategoryId] = React.useState<string>("");
   const [note, setNote] = React.useState("");
@@ -49,7 +49,7 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
     } else {
       setType("expense");
       setAmount("");
-      setDate(defaultDate ?? toDateKey(new Date()));
+      setDate(defaultDate ?? vnTodayKey());
       setAccountId(accounts[0]?.id ?? "");
       setCategoryId("");
       setNote("");
@@ -75,7 +75,7 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
       setError("Vui lòng chọn ví/tài khoản.");
       return;
     }
-    if (date > toDateKey(new Date())) {
+    if (date > vnTodayKey()) {
       setError("Ngày giao dịch không được ở tương lai.");
       return;
     }
@@ -160,7 +160,7 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
             <Input
               id="date"
               type="date"
-              max={toDateKey(new Date())}
+              max={vnTodayKey()}
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />

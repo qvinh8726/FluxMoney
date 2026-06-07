@@ -34,11 +34,12 @@ export default function AiPage() {
   const accounts = useStore((s) => s.accounts);
   const categories = useStore((s) => s.categories);
   const budgets = useStore((s) => s.budgets);
+  const transfers = useStore((s) => s.transfers);
   const baseCurrency = useStore((s) => s.baseCurrency);
 
   const analysis = React.useMemo(
-    () => analyze(transactions, accounts, categories, budgets),
-    [transactions, accounts, categories, budgets]
+    () => analyze(transactions, accounts, categories, budgets, transfers),
+    [transactions, accounts, categories, budgets, transfers]
   );
 
   const [deep, setDeep] = React.useState<string | null>(null);

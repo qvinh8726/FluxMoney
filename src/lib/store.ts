@@ -1,9 +1,15 @@
 "use client";
 
 import { create } from "zustand";
-import type { Account, Budget, Category, Transaction, TxType } from "./types";
+import type { Account, Budget, Category, Transaction, Transfer, TxType } from "./types";
 import { createClient } from "./supabase/client";
-import { toAccount, toBudget, toCategory, toTransaction } from "./mappers";
+import {
+  toAccount,
+  toBudget,
+  toCategory,
+  toTransaction,
+  toTransfer,
+} from "./mappers";
 
 interface State {
   userId: string | null;
@@ -12,6 +18,7 @@ interface State {
   categories: Category[];
   transactions: Transaction[];
   budgets: Budget[];
+  transfers: Transfer[];
   loaded: boolean;
   loading: boolean;
 
@@ -32,6 +39,10 @@ interface State {
   addBudget: (b: Omit<Budget, "id" | "createdAt">) => Promise<void>;
   updateBudget: (id: string, patch: Partial<Budget>) => Promise<void>;
   deleteBudget: (id: string) => Promise<void>;
+
+  addTransfer: (t: Omit<Transfer, "id" | "createdAt">) => Promise<void>;
+  updateTransfer: (id: string, patch: Partial<Transfer>) => Promise<void>;
+  deleteTransfer: (id: string) => Promise<void>;
 
   setBaseCurrency: (c: string) => Promise<void>;
   exportData: () => string;
@@ -55,6 +66,7 @@ export const useStore = create<State>()((set, get) => ({
   categories: [],
   transactions: [],
   budgets: [],
+  transfers: [],
   loaded: false,
   loading: false,
 
@@ -69,12 +81,13 @@ export const useStore = create<State>()((set, get) => ({
       return;
     }
 
-    const [profileRes, accRes, catRes, txRes, budRes] = await Promise.all([
+    const [profileRes, accRes, catRes, txRes, budRes, trfRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("accounts").select("*").order("created_at"),
       supabase.from("categories").select("*").order("created_at"),
       supabase.from("transactions").select("*").order("date", { ascending: false }),
       supabase.from("budgets").select("*").order("created_at"),
+      supabase.from("transfers").select("*").order("date", { ascending: false }),
     ]);
 
     set({
@@ -84,6 +97,7 @@ export const useStore = create<State>()((set, get) => ({
       categories: (catRes.data ?? []).map(toCategory),
       transactions: (txRes.data ?? []).map(toTransaction),
       budgets: (budRes.data ?? []).map(toBudget),
+      transfers: (trfRes.data ?? []).map(toTransfer),
       loaded: true,
       loading: false,
     });
@@ -171,6 +185,9 @@ export const useStore = create<State>()((set, get) => ({
     set((s) => ({
       accounts: s.accounts.filter((a) => a.id !== id),
       transactions: s.transactions.filter((t) => t.accountId !== id),
+      transfers: s.transfers.filter(
+        (t) => t.fromAccountId !== id && t.toAccountId !== id
+      ),
     }));
   },
 
@@ -246,6 +263,47 @@ export const useStore = create<State>()((set, get) => ({
     set((s) => ({ budgets: s.budgets.filter((b) => b.id !== id) }));
   },
 
+  // ---------- Transfers ----------
+  addTransfer: async (t) => {
+    const userId = get().userId;
+    if (!userId) return;
+    const { data } = await supabase
+      .from("transfers")
+      .insert({
+        user_id: userId,
+        from_account_id: t.fromAccountId,
+        to_account_id: t.toAccountId,
+        amount: t.amount,
+        date: t.date,
+        note: t.note ?? null,
+      })
+      .select()
+      .single();
+    if (data) set((s) => ({ transfers: [toTransfer(data), ...s.transfers] }));
+  },
+  updateTransfer: async (id, patch) => {
+    const { data } = await supabase
+      .from("transfers")
+      .update({
+        from_account_id: patch.fromAccountId,
+        to_account_id: patch.toAccountId,
+        amount: patch.amount,
+        date: patch.date,
+        note: patch.note ?? null,
+      })
+      .eq("id", id)
+      .select()
+      .single();
+    if (data)
+      set((s) => ({
+        transfers: s.transfers.map((t) => (t.id === id ? toTransfer(data) : t)),
+      }));
+  },
+  deleteTransfer: async (id) => {
+    await supabase.from("transfers").delete().eq("id", id);
+    set((s) => ({ transfers: s.transfers.filter((t) => t.id !== id) }));
+  },
+
   // ---------- Misc ----------
   setBaseCurrency: async (c) => {
     const userId = get().userId;
@@ -266,6 +324,7 @@ export const useStore = create<State>()((set, get) => ({
         categories: s.categories,
         transactions: s.transactions,
         budgets: s.budgets,
+        transfers: s.transfers,
       },
       null,
       2
@@ -275,13 +334,20 @@ export const useStore = create<State>()((set, get) => ({
 
 // ---- Selector helpers (thuần) ----
 
-export function accountBalance(account: Account, transactions: Transaction[]): number {
-  return transactions
+export function accountBalance(
+  account: Account,
+  transactions: Transaction[],
+  transfers: Transfer[] = []
+): number {
+  const fromTx = transactions
     .filter((t) => t.accountId === account.id)
-    .reduce(
-      (bal, t) => bal + (t.type === "income" ? t.amount : -t.amount),
-      account.initialBalance
-    );
+    .reduce((bal, t) => bal + (t.type === "income" ? t.amount : -t.amount), 0);
+  const fromTransfers = transfers.reduce((bal, tr) => {
+    if (tr.fromAccountId === account.id) return bal - tr.amount;
+    if (tr.toAccountId === account.id) return bal + tr.amount;
+    return bal;
+  }, 0);
+  return account.initialBalance + fromTx + fromTransfers;
 }
 
 export function sumByType(transactions: Transaction[], type: TxType): number {
