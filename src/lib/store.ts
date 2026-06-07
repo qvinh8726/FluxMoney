@@ -13,6 +13,7 @@ import {
   toRecurring,
 } from "./mappers";
 import { vnTodayKey, toDateKey } from "./utils";
+import { toast } from "./toast";
 import { addDays, addWeeks, addMonths, addYears, parseISO } from "date-fns";
 
 /** Mốc kỳ kế tiếp của một ngày theo tần suất (trả về YYYY-MM-DD). */
@@ -139,7 +140,7 @@ export const useStore = create<State>()((set, get) => ({
   addTransaction: async (t) => {
     const userId = get().userId;
     if (!userId) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("transactions")
       .insert({
         user_id: userId,
@@ -153,10 +154,14 @@ export const useStore = create<State>()((set, get) => ({
       })
       .select()
       .single();
-    if (data) set((s) => ({ transactions: [toTransaction(data), ...s.transactions] }));
+    if (error || !data) {
+      toast.error("Không lưu được giao dịch. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({ transactions: [toTransaction(data), ...s.transactions] }));
   },
   updateTransaction: async (id, patch) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("transactions")
       .update({
         type: patch.type,
@@ -169,13 +174,20 @@ export const useStore = create<State>()((set, get) => ({
       .eq("id", id)
       .select()
       .single();
-    if (data)
-      set((s) => ({
-        transactions: s.transactions.map((t) => (t.id === id ? toTransaction(data) : t)),
-      }));
+    if (error || !data) {
+      toast.error("Không cập nhật được giao dịch. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({
+      transactions: s.transactions.map((t) => (t.id === id ? toTransaction(data) : t)),
+    }));
   },
   deleteTransaction: async (id) => {
-    await supabase.from("transactions").delete().eq("id", id);
+    const { error } = await supabase.from("transactions").delete().eq("id", id);
+    if (error) {
+      toast.error("Không xóa được giao dịch. Vui lòng thử lại.");
+      return;
+    }
     set((s) => ({ transactions: s.transactions.filter((t) => t.id !== id) }));
   },
 
@@ -183,7 +195,7 @@ export const useStore = create<State>()((set, get) => ({
   addAccount: async (a) => {
     const userId = get().userId;
     if (!userId) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("accounts")
       .insert({
         user_id: userId,
@@ -195,10 +207,14 @@ export const useStore = create<State>()((set, get) => ({
       })
       .select()
       .single();
-    if (data) set((s) => ({ accounts: [...s.accounts, toAccount(data)] }));
+    if (error || !data) {
+      toast.error("Không lưu được ví. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({ accounts: [...s.accounts, toAccount(data)] }));
   },
   updateAccount: async (id, patch) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("accounts")
       .update({
         name: patch.name,
@@ -209,11 +225,18 @@ export const useStore = create<State>()((set, get) => ({
       .eq("id", id)
       .select()
       .single();
-    if (data)
-      set((s) => ({ accounts: s.accounts.map((a) => (a.id === id ? toAccount(data) : a)) }));
+    if (error || !data) {
+      toast.error("Không cập nhật được ví. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({ accounts: s.accounts.map((a) => (a.id === id ? toAccount(data) : a)) }));
   },
   deleteAccount: async (id) => {
-    await supabase.from("accounts").delete().eq("id", id);
+    const { error } = await supabase.from("accounts").delete().eq("id", id);
+    if (error) {
+      toast.error("Không xóa được ví. Vui lòng thử lại.");
+      return;
+    }
     set((s) => ({
       accounts: s.accounts.filter((a) => a.id !== id),
       transactions: s.transactions.filter((t) => t.accountId !== id),
@@ -227,7 +250,7 @@ export const useStore = create<State>()((set, get) => ({
   addCategory: async (c) => {
     const userId = get().userId;
     if (!userId) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("categories")
       .insert({
         user_id: userId,
@@ -239,22 +262,33 @@ export const useStore = create<State>()((set, get) => ({
       })
       .select()
       .single();
-    if (data) set((s) => ({ categories: [...s.categories, toCategory(data)] }));
+    if (error || !data) {
+      toast.error("Không lưu được danh mục. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({ categories: [...s.categories, toCategory(data)] }));
   },
   updateCategory: async (id, patch) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("categories")
       .update({ name: patch.name, type: patch.type, color: patch.color, icon: patch.icon })
       .eq("id", id)
       .select()
       .single();
-    if (data)
-      set((s) => ({
-        categories: s.categories.map((c) => (c.id === id ? toCategory(data) : c)),
-      }));
+    if (error || !data) {
+      toast.error("Không cập nhật được danh mục. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({
+      categories: s.categories.map((c) => (c.id === id ? toCategory(data) : c)),
+    }));
   },
   deleteCategory: async (id) => {
-    await supabase.from("categories").delete().eq("id", id);
+    const { error } = await supabase.from("categories").delete().eq("id", id);
+    if (error) {
+      toast.error("Không xóa được danh mục. Vui lòng thử lại.");
+      return;
+    }
     set((s) => ({
       categories: s.categories.filter((c) => c.id !== id),
       transactions: s.transactions.map((t) =>
@@ -268,7 +302,7 @@ export const useStore = create<State>()((set, get) => ({
   addBudget: async (b) => {
     const userId = get().userId;
     if (!userId) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("budgets")
       .insert({
         user_id: userId,
@@ -278,20 +312,31 @@ export const useStore = create<State>()((set, get) => ({
       })
       .select()
       .single();
-    if (data) set((s) => ({ budgets: [...s.budgets, toBudget(data)] }));
+    if (error || !data) {
+      toast.error("Không lưu được ngân sách. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({ budgets: [...s.budgets, toBudget(data)] }));
   },
   updateBudget: async (id, patch) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("budgets")
       .update({ category_id: patch.categoryId, amount: patch.amount, period: patch.period })
       .eq("id", id)
       .select()
       .single();
-    if (data)
-      set((s) => ({ budgets: s.budgets.map((b) => (b.id === id ? toBudget(data) : b)) }));
+    if (error || !data) {
+      toast.error("Không cập nhật được ngân sách. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({ budgets: s.budgets.map((b) => (b.id === id ? toBudget(data) : b)) }));
   },
   deleteBudget: async (id) => {
-    await supabase.from("budgets").delete().eq("id", id);
+    const { error } = await supabase.from("budgets").delete().eq("id", id);
+    if (error) {
+      toast.error("Không xóa được ngân sách. Vui lòng thử lại.");
+      return;
+    }
     set((s) => ({ budgets: s.budgets.filter((b) => b.id !== id) }));
   },
 
@@ -299,7 +344,7 @@ export const useStore = create<State>()((set, get) => ({
   addTransfer: async (t) => {
     const userId = get().userId;
     if (!userId) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("transfers")
       .insert({
         user_id: userId,
@@ -311,10 +356,14 @@ export const useStore = create<State>()((set, get) => ({
       })
       .select()
       .single();
-    if (data) set((s) => ({ transfers: [toTransfer(data), ...s.transfers] }));
+    if (error || !data) {
+      toast.error("Không lưu được chuyển khoản. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({ transfers: [toTransfer(data), ...s.transfers] }));
   },
   updateTransfer: async (id, patch) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("transfers")
       .update({
         from_account_id: patch.fromAccountId,
@@ -326,13 +375,20 @@ export const useStore = create<State>()((set, get) => ({
       .eq("id", id)
       .select()
       .single();
-    if (data)
-      set((s) => ({
-        transfers: s.transfers.map((t) => (t.id === id ? toTransfer(data) : t)),
-      }));
+    if (error || !data) {
+      toast.error("Không cập nhật được chuyển khoản. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({
+      transfers: s.transfers.map((t) => (t.id === id ? toTransfer(data) : t)),
+    }));
   },
   deleteTransfer: async (id) => {
-    await supabase.from("transfers").delete().eq("id", id);
+    const { error } = await supabase.from("transfers").delete().eq("id", id);
+    if (error) {
+      toast.error("Không xóa được chuyển khoản. Vui lòng thử lại.");
+      return;
+    }
     set((s) => ({ transfers: s.transfers.filter((t) => t.id !== id) }));
   },
 
@@ -340,7 +396,7 @@ export const useStore = create<State>()((set, get) => ({
   addRecurring: async (r) => {
     const userId = get().userId;
     if (!userId) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("recurring_rules")
       .insert({
         user_id: userId,
@@ -356,13 +412,15 @@ export const useStore = create<State>()((set, get) => ({
       })
       .select()
       .single();
-    if (data) {
-      set((s) => ({ recurringRules: [...s.recurringRules, toRecurring(data)] }));
-      get().generateDueRecurring();
+    if (error || !data) {
+      toast.error("Không lưu được quy tắc định kỳ. Vui lòng thử lại.");
+      return;
     }
+    set((s) => ({ recurringRules: [...s.recurringRules, toRecurring(data)] }));
+    get().generateDueRecurring();
   },
   updateRecurring: async (id, patch) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("recurring_rules")
       .update({
         type: patch.type,
@@ -378,15 +436,22 @@ export const useStore = create<State>()((set, get) => ({
       .eq("id", id)
       .select()
       .single();
-    if (data)
-      set((s) => ({
-        recurringRules: s.recurringRules.map((r) =>
-          r.id === id ? toRecurring(data) : r
-        ),
-      }));
+    if (error || !data) {
+      toast.error("Không cập nhật được quy tắc định kỳ. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({
+      recurringRules: s.recurringRules.map((r) =>
+        r.id === id ? toRecurring(data) : r
+      ),
+    }));
   },
   deleteRecurring: async (id) => {
-    await supabase.from("recurring_rules").delete().eq("id", id);
+    const { error } = await supabase.from("recurring_rules").delete().eq("id", id);
+    if (error) {
+      toast.error("Không xóa được quy tắc định kỳ. Vui lòng thử lại.");
+      return;
+    }
     set((s) => ({ recurringRules: s.recurringRules.filter((r) => r.id !== id) }));
   },
 
@@ -459,9 +524,17 @@ export const useStore = create<State>()((set, get) => ({
   // ---------- Misc ----------
   setBaseCurrency: async (c) => {
     const userId = get().userId;
+    const prev = get().baseCurrency;
     set({ baseCurrency: c });
     if (userId) {
-      await supabase.from("profiles").update({ base_currency: c }).eq("id", userId);
+      const { error } = await supabase
+        .from("profiles")
+        .update({ base_currency: c })
+        .eq("id", userId);
+      if (error) {
+        set({ baseCurrency: prev });
+        toast.error("Không lưu được đơn vị tiền tệ. Vui lòng thử lại.");
+      }
     }
   },
 
@@ -477,6 +550,7 @@ export const useStore = create<State>()((set, get) => ({
         transactions: s.transactions,
         budgets: s.budgets,
         transfers: s.transfers,
+        recurringRules: s.recurringRules,
       },
       null,
       2
