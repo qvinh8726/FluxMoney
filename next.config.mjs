@@ -1,7 +1,5 @@
 /** @type {import('next').NextConfig} */
 
-import { withSentryConfig } from "@sentry/nextjs";
-
 // Header bảo mật áp cho mọi response. Không gồm CSP đầy đủ ở đây:
 // CSP đúng chuẩn cho Next cần nonce theo từng request (qua middleware),
 // làm sơ sài sẽ chặn nhầm script nội bộ của Next. Để CSP làm bước riêng.
@@ -36,11 +34,4 @@ const nextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
-  // Tắt log ồn ào khi build.
-  silent: true,
-  // Không upload source map ở bước này (cần SENTRY_AUTH_TOKEN). Bật sau khi
-  // đã thêm token vào Vercel env: đặt biến rồi bỏ dòng này.
-  sourcemaps: { disable: true },
-});
-
+export default nextConfig;
