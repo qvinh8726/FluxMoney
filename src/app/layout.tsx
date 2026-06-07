@@ -12,9 +12,9 @@ const beVietnam = Be_Vietnam_Pro({
 });
 
 export const metadata: Metadata = {
-  title: "Dòng Tiền — Quản lý chi tiêu theo lịch",
+  title: "FluxMoney — Quản lý dòng tiền theo lịch",
   description:
-    "Ứng dụng quản lý dòng tiền cá nhân với giao diện lịch trực quan: theo dõi thu chi, ví, ngân sách và báo cáo.",
+    "FluxMoney: ứng dụng quản lý dòng tiền cá nhân với giao diện lịch trực quan — theo dõi thu chi, ví, ngân sách và báo cáo.",
 };
 
 export default function RootLayout({

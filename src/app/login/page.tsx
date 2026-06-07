@@ -31,7 +31,7 @@ export default function LoginPage() {
         <CardContent className="flex flex-col items-center gap-6 p-8 text-center">
           <div className="flex items-center gap-2">
             <CircleDollarSign className="size-8 text-primary" />
-            <span className="text-2xl font-bold tracking-tight">Dòng Tiền</span>
+            <span className="text-2xl font-bold tracking-tight">FluxMoney</span>
           </div>
           <div>
             <h1 className="text-lg font-semibold">Đăng nhập để bắt đầu</h1>

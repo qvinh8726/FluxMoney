@@ -90,7 +90,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Button>
           <div className="flex items-center gap-2 lg:hidden">
             <CircleDollarSign className="size-5 text-primary" />
-            <span className="font-semibold">Dòng Tiền</span>
+            <span className="font-semibold">FluxMoney</span>
           </div>
           <div className="ml-auto flex items-center gap-1">
             <ThemeToggle />
@@ -132,7 +132,7 @@ function SidebarContent({ pathname }: { pathname: string }) {
     <>
       <div className="flex h-14 items-center gap-2 border-b px-5">
         <CircleDollarSign className="size-6 text-primary" />
-        <span className="text-lg font-bold tracking-tight">Dòng Tiền</span>
+        <span className="text-lg font-bold tracking-tight">FluxMoney</span>
       </div>
       <nav className="flex flex-1 flex-col gap-1 p-3">
         {nav.map((item) => {
