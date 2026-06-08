@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AppShell } from "@/components/app-shell";
 import { Toaster } from "@/components/toaster";
+import { PwaRegister } from "@/components/pwa-register";
 
 const beVietnam = Be_Vietnam_Pro({
   subsets: ["latin", "vietnamese"],
@@ -16,6 +17,12 @@ export const metadata: Metadata = {
   title: "FluxMoney — Quản lý dòng tiền theo lịch",
   description:
     "FluxMoney: ứng dụng quản lý dòng tiền cá nhân với giao diện lịch trực quan — theo dõi thu chi, ví, ngân sách và báo cáo.",
+  themeColor: "#2563eb",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "FluxMoney",
+  },
 };
 
 export default function RootLayout({
@@ -23,6 +30,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
+      <head>
+        <link rel="apple-touch-icon" href="/icon.png" />
+      </head>
       <body className={`${beVietnam.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
@@ -32,6 +42,7 @@ export default function RootLayout({
         >
           <AppShell>{children}</AppShell>
           <Toaster />
+          <PwaRegister />
         </ThemeProvider>
       </body>
     </html>

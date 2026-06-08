@@ -1,13 +1,14 @@
 "use client";
 
 import { create } from "zustand";
-import type { Account, Budget, Category, Transaction, Transfer, TxType } from "./types";
+import type { Account, Budget, Category, SavingsGoal, Transaction, Transfer, TxType } from "./types";
 import type { RecurringRule, RecurringFrequency } from "./types";
 import { createClient } from "./supabase/client";
 import {
   toAccount,
   toBudget,
   toCategory,
+  toSavingsGoal,
   toTransaction,
   toTransfer,
   toRecurring,
@@ -39,6 +40,7 @@ interface State {
   budgets: Budget[];
   transfers: Transfer[];
   recurringRules: RecurringRule[];
+  savingsGoals: SavingsGoal[];
   loaded: boolean;
   loading: boolean;
 
@@ -71,6 +73,10 @@ interface State {
   deleteRecurring: (id: string) => Promise<void>;
   generateDueRecurring: () => Promise<void>;
 
+  addSavingsGoal: (g: Omit<SavingsGoal, "id" | "createdAt">) => Promise<void>;
+  updateSavingsGoal: (id: string, patch: Partial<SavingsGoal>) => Promise<void>;
+  deleteSavingsGoal: (id: string) => Promise<void>;
+
   setBaseCurrency: (c: string) => Promise<void>;
   exportData: () => string;
   clear: () => void;
@@ -100,6 +106,7 @@ export const useStore = create<State>()((set, get) => ({
   budgets: [],
   transfers: [],
   recurringRules: [],
+  savingsGoals: [],
   loaded: false,
   loading: false,
 
@@ -114,7 +121,7 @@ export const useStore = create<State>()((set, get) => ({
       return;
     }
 
-    const [profileRes, accRes, catRes, txRes, budRes, trfRes, recRes] =
+    const [profileRes, accRes, catRes, txRes, budRes, trfRes, recRes, savRes] =
       await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
         supabase.from("accounts").select("*").order("created_at"),
@@ -123,6 +130,7 @@ export const useStore = create<State>()((set, get) => ({
         supabase.from("budgets").select("*").order("created_at"),
         supabase.from("transfers").select("*").order("date", { ascending: false }),
         supabase.from("recurring_rules").select("*").order("created_at"),
+        supabase.from("savings_goals").select("*").order("created_at"),
       ]);
 
     set({
@@ -134,6 +142,7 @@ export const useStore = create<State>()((set, get) => ({
       budgets: (budRes.data ?? []).map(toBudget),
       transfers: (trfRes.data ?? []).map(toTransfer),
       recurringRules: (recRes.data ?? []).map(toRecurring),
+      savingsGoals: (savRes.data ?? []).map(toSavingsGoal),
       loaded: true,
       loading: false,
     });
@@ -617,6 +626,58 @@ export const useStore = create<State>()((set, get) => ({
     }
   },
 
+  // ---------- Savings Goals ----------
+  addSavingsGoal: async (g) => {
+    const userId = get().userId;
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from("savings_goals")
+      .insert({
+        user_id: userId,
+        name: g.name,
+        target_amount: g.targetAmount,
+        current_amount: g.currentAmount,
+        deadline: g.deadline ?? null,
+        note: g.note ?? null,
+      })
+      .select()
+      .single();
+    if (error || !data) {
+      toast.error("Không lưu được mục tiêu. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({ savingsGoals: [...s.savingsGoals, toSavingsGoal(data)] }));
+  },
+  updateSavingsGoal: async (id, patch) => {
+    const { data, error } = await supabase
+      .from("savings_goals")
+      .update({
+        name: patch.name,
+        target_amount: patch.targetAmount,
+        current_amount: patch.currentAmount,
+        deadline: patch.deadline ?? null,
+        note: patch.note ?? null,
+      })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error || !data) {
+      toast.error("Không cập nhật được mục tiêu. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({
+      savingsGoals: s.savingsGoals.map((g) => (g.id === id ? toSavingsGoal(data) : g)),
+    }));
+  },
+  deleteSavingsGoal: async (id) => {
+    const { error } = await supabase.from("savings_goals").delete().eq("id", id);
+    if (error) {
+      toast.error("Không xóa được mục tiêu. Vui lòng thử lại.");
+      return;
+    }
+    set((s) => ({ savingsGoals: s.savingsGoals.filter((g) => g.id !== id) }));
+  },
+
   // ---------- Misc ----------
   setBaseCurrency: async (c) => {
     const userId = get().userId;
@@ -663,6 +724,7 @@ export const useStore = create<State>()((set, get) => ({
       budgets: [],
       transfers: [],
       recurringRules: [],
+      savingsGoals: [],
       loaded: false,
       loading: false,
     }),

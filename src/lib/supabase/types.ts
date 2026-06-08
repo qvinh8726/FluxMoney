@@ -63,6 +63,17 @@ export interface BudgetRow {
   created_at: string;
 }
 
+export interface SavingsGoalRow {
+  id: string;
+  user_id: string;
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  deadline: string | null;
+  note: string | null;
+  created_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -71,6 +82,7 @@ export interface Database {
       categories: Row<Omit<CategoryRow, "id" | "created_at">, CategoryRow>;
       transactions: Row<Omit<TransactionRow, "id" | "created_at">, TransactionRow>;
       budgets: Row<Omit<BudgetRow, "id" | "created_at">, BudgetRow>;
+      savings_goals: Row<Omit<SavingsGoalRow, "id" | "created_at">, SavingsGoalRow>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

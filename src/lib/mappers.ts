@@ -3,6 +3,7 @@ import type {
   Account,
   Budget,
   Category,
+  SavingsGoal,
   Transaction,
   Transfer,
   RecurringRule,
@@ -11,6 +12,7 @@ import type {
   AccountRow,
   BudgetRow,
   CategoryRow,
+  SavingsGoalRow,
   TransactionRow,
 } from "./supabase/types";
 
@@ -99,5 +101,15 @@ export const toRecurring = (r: RecurringRowLike): RecurringRule => ({
   note: r.note ?? undefined,
   paused: r.paused,
   lastGeneratedDate: r.last_generated_date ?? undefined,
+  createdAt: r.created_at,
+});
+
+export const toSavingsGoal = (r: SavingsGoalRow): SavingsGoal => ({
+  id: r.id,
+  name: r.name,
+  targetAmount: Number(r.target_amount),
+  currentAmount: Number(r.current_amount),
+  deadline: r.deadline ?? undefined,
+  note: r.note ?? undefined,
   createdAt: r.created_at,
 });

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Download, FileSpreadsheet, Coins, Trash2, Loader2 } from "lucide-react";
+import { Download, FileSpreadsheet, Coins, Trash2, Loader2, Bell } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
 import { toast } from "@/lib/toast";
 import { transactionsToCsv, transfersToCsv } from "@/lib/csv";
+import { urlBase64ToUint8Array } from "@/lib/pwa";
 
 const CURRENCIES = ["VND", "USD", "EUR", "JPY", "GBP", "AUD", "SGD", "KRW"];
 
@@ -32,6 +33,69 @@ export default function SettingsPage() {
   const [delOpen, setDelOpen] = React.useState(false);
   const [confirmText, setConfirmText] = React.useState("");
   const [deleting, setDeleting] = React.useState(false);
+
+  // Push notification state
+  const [pushSupported, setPushSupported] = React.useState(false);
+  const [pushSubscribed, setPushSubscribed] = React.useState(false);
+  const [pushLoading, setPushLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    setPushSupported(true);
+    // Kiểm tra đã subscribe chưa
+    navigator.serviceWorker.ready.then((reg) => {
+      reg.pushManager.getSubscription().then((sub) => {
+        setPushSubscribed(!!sub);
+      });
+    });
+  }, []);
+
+  async function handleEnablePush() {
+    if (!pushSupported) return;
+    setPushLoading(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        toast.error("Bạn đã từ chối quyền thông báo. Hãy bật lại trong cài đặt trình duyệt.");
+        setPushLoading(false);
+        return;
+      }
+
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!vapidKey) {
+        toast.error("Chưa cấu hình VAPID key. Liên hệ quản trị viên.");
+        setPushLoading(false);
+        return;
+      }
+
+      const reg = await navigator.serviceWorker.ready;
+      const subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+
+      const res = await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(subscription.toJSON()),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.reason ?? "Không đăng ký thông báo được. Thử lại sau.");
+        setPushLoading(false);
+        return;
+      }
+
+      setPushSubscribed(true);
+      toast.success("Đã bật thông báo thành công!");
+    } catch {
+      toast.error("Không bật được thông báo. Vui lòng thử lại.");
+    } finally {
+      setPushLoading(false);
+    }
+  }
 
   function handleExportCsv() {
     const BOM = "﻿";
@@ -163,6 +227,29 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {pushSupported && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Bell className="size-5 text-primary" /> Thông báo đẩy
+            </CardTitle>
+            <CardDescription>
+              Nhận thông báo ngay cả khi không mở app — nhắc nhở chi tiêu, cảnh báo ngân sách, v.v.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {pushSubscribed ? (
+              <p className="text-sm text-income">Thông báo đẩy đang bật.</p>
+            ) : (
+              <Button variant="outline" onClick={handleEnablePush} disabled={pushLoading}>
+                {pushLoading ? <Loader2 className="size-4 animate-spin" /> : <Bell className="size-4" />}
+                Bật thông báo
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-destructive/40">
         <CardHeader>
