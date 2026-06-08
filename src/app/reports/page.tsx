@@ -1,25 +1,29 @@
 "use client";
 
 import * as React from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
 import { format, subMonths, isSameMonth } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
-import { formatCompact, formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
+
+const ChartFallback = () => (
+  <div className="flex h-full w-full items-center justify-center">
+    <span className="text-sm text-muted-foreground">Đang tải biểu đồ…</span>
+  </div>
+);
+
+const MonthlyBarChart = dynamic(
+  () => import("@/components/reports-charts").then((m) => m.MonthlyBarChart),
+  { ssr: false, loading: ChartFallback }
+);
+
+const CategoryPieChart = dynamic(
+  () => import("@/components/reports-charts").then((m) => m.CategoryPieChart),
+  { ssr: false, loading: ChartFallback }
+);
 
 export default function ReportsPage() {
   const hydrated = useHydrated();
@@ -96,31 +100,7 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent>
           <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthly} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
-                <XAxis dataKey="label" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v) => formatCompact(Number(v))}
-                  width={48}
-                />
-                <Tooltip
-                  formatter={(v: number) => formatCurrency(v, baseCurrency)}
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: "1px solid hsl(var(--border))",
-                    background: "hsl(var(--popover))",
-                    color: "hsl(var(--popover-foreground))",
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="income" name="Thu" fill="hsl(var(--income))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expense" name="Chi" fill="hsl(var(--expense))" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <MonthlyBarChart data={monthly} baseCurrency={baseCurrency} />
           </div>
         </CardContent>
       </Card>
@@ -137,31 +117,7 @@ export default function ReportsPage() {
           ) : (
             <div className="grid grid-cols-1 items-center gap-6 md:grid-cols-2">
               <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={byCategory}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={55}
-                      outerRadius={90}
-                      paddingAngle={2}
-                    >
-                      {byCategory.map((c) => (
-                        <Cell key={c.name} fill={c.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(v: number) => formatCurrency(v, baseCurrency)}
-                      contentStyle={{
-                        borderRadius: 12,
-                        border: "1px solid hsl(var(--border))",
-                        background: "hsl(var(--popover))",
-                        color: "hsl(var(--popover-foreground))",
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                <CategoryPieChart data={byCategory} baseCurrency={baseCurrency} />
               </div>
               <ul className="space-y-2">
                 {byCategory.map((c) => {
