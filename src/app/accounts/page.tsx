@@ -11,7 +11,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { accountBalance, useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatMoneyInput, parseMoneyInput, moneyToInput } from "@/lib/utils";
 import type { Account, AccountKind } from "@/lib/types";
 
 const KIND_LABEL: Record<AccountKind, string> = {
@@ -183,7 +183,7 @@ function AccountDialog({
     if (!open) return;
     setName(editing?.name ?? "");
     setKind(editing?.kind ?? "cash");
-    setInitialBalance(String(editing?.initialBalance ?? 0));
+    setInitialBalance(moneyToInput(editing?.initialBalance ?? 0));
     setColor(editing?.color ?? "#2563EB");
     setError(null);
   }, [open, editing]);
@@ -195,7 +195,7 @@ function AccountDialog({
       setError("Tên ví phải từ 1 đến 100 ký tự.");
       return;
     }
-    const bal = Number(initialBalance);
+    const bal = parseMoneyInput(initialBalance);
     if (Number.isNaN(bal) || Math.abs(bal) > 999_999_999.99) {
       setError("Số dư ban đầu không hợp lệ.");
       return;
@@ -251,10 +251,9 @@ function AccountDialog({
           <Label htmlFor="acc-balance">Số dư ban đầu</Label>
           <Input
             id="acc-balance"
-            type="number"
-            step="0.01"
+            inputMode="numeric"
             value={initialBalance}
-            onChange={(e) => setInitialBalance(e.target.value)}
+            onChange={(e) => setInitialBalance(formatMoneyInput(e.target.value))}
           />
         </div>
         {error && (

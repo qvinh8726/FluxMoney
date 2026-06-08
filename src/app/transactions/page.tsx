@@ -191,7 +191,7 @@ export default function TransactionsPage() {
           else deleteTransfer(toDelete.id);
         }}
         title={toDelete?.kind === "tr" ? "Xóa chuyển khoản này?" : "Xóa giao dịch này?"}
-        description="Hành động không thể hoàn tác."
+        description="Bạn có thể hoàn tác ngay sau khi xóa."
         confirmLabel="Xóa"
         destructive
       />
@@ -285,13 +285,13 @@ function TrRow({
 function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
   return (
     <div className="flex shrink-0 gap-1">
-      <Button variant="ghost" size="icon" className="size-8" aria-label="Sửa" onClick={onEdit}>
+      <Button variant="ghost" size="icon" aria-label="Sửa" onClick={onEdit}>
         <Pencil className="size-4" />
       </Button>
       <Button
         variant="ghost"
         size="icon"
-        className="size-8 text-destructive hover:text-destructive"
+        className="text-destructive hover:text-destructive"
         aria-label="Xóa"
         onClick={onDelete}
       >

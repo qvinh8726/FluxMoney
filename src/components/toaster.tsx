@@ -36,6 +36,17 @@ export function Toaster() {
           >
             <Icon className="mt-0.5 size-4 shrink-0" />
             <p className="flex-1 text-foreground">{t.message}</p>
+            {t.action && (
+              <button
+                onClick={() => {
+                  t.action!.onClick();
+                  dismiss(t.id);
+                }}
+                className="shrink-0 rounded-md px-2 py-1 text-sm font-semibold text-foreground underline-offset-2 hover:underline"
+              >
+                {t.action.label}
+              </button>
+            )}
             <button
               aria-label="Đóng"
               onClick={() => dismiss(t.id)}

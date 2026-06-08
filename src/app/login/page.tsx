@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,8 +63,15 @@ export default function LoginPage() {
           )}
 
           <p className="text-xs text-muted-foreground">
-            Bằng việc đăng nhập, bạn đồng ý cho ứng dụng lưu trữ dữ liệu tài chính
-            của bạn một cách an toàn.
+            Bằng việc đăng nhập, bạn đồng ý với{" "}
+            <Link href="/terms" className="text-primary underline-offset-2 hover:underline">
+              Điều khoản sử dụng
+            </Link>{" "}
+            và{" "}
+            <Link href="/privacy" className="text-primary underline-offset-2 hover:underline">
+              Chính sách quyền riêng tư
+            </Link>
+            , và cho phép ứng dụng lưu trữ dữ liệu tài chính của bạn một cách an toàn.
           </p>
         </CardContent>
       </Card>

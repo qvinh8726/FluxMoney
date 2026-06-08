@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { vnTodayKey } from "@/lib/utils";
+import { vnTodayKey, formatMoneyInput, parseMoneyInput, moneyToInput } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import type { Transfer } from "@/lib/types";
 
@@ -38,7 +38,7 @@ export function TransferDialog({ open, onClose, editing, defaultDate }: Props) {
     if (editing) {
       setFromId(editing.fromAccountId);
       setToId(editing.toAccountId);
-      setAmount(String(editing.amount));
+      setAmount(moneyToInput(editing.amount));
       setDate(editing.date);
       setNote(editing.note ?? "");
     } else {
@@ -53,7 +53,7 @@ export function TransferDialog({ open, onClose, editing, defaultDate }: Props) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const value = Number(amount);
+    const value = parseMoneyInput(amount);
 
     if (!fromId || !toId) {
       setError("Vui lòng chọn ví nguồn và ví đích.");
@@ -122,12 +122,10 @@ export function TransferDialog({ open, onClose, editing, defaultDate }: Props) {
             <Label htmlFor="t-amount">Số tiền</Label>
             <Input
               id="t-amount"
-              type="number"
-              step="0.01"
-              min="0.01"
+              inputMode="numeric"
               placeholder="0"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAmount(formatMoneyInput(e.target.value))}
               autoFocus
             />
           </div>

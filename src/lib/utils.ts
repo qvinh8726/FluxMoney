@@ -31,6 +31,39 @@ export function formatCurrency(
   }
 }
 
+/**
+ * Định dạng chuỗi người dùng đang gõ thành dạng có dấu phân cách nghìn
+ * theo quy ước vi-VN: '.' ngăn cách nghìn, ',' ngăn cách thập phân.
+ * Giữ nguyên dấu thập phân đang gõ dở (vd "1.000," → cho gõ tiếp phần lẻ).
+ */
+export function formatMoneyInput(raw: string): string {
+  const neg = raw.trim().startsWith("-");
+  let s = raw.replace(/[^\d,]/g, "");
+  const firstComma = s.indexOf(",");
+  if (firstComma !== -1) {
+    // Chỉ giữ dấu phẩy thập phân đầu tiên; bỏ các dấu phẩy thừa phía sau.
+    s = s.slice(0, firstComma + 1) + s.slice(firstComma + 1).replace(/,/g, "");
+  }
+  const [intPart, decPart] = s.split(",");
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const body = decPart !== undefined ? `${grouped},${decPart.slice(0, 2)}` : grouped;
+  return neg && body ? `-${body}` : body;
+}
+
+/** Đổi chuỗi tiền đã format (vi-VN) về số thuần. Trả NaN nếu rỗng/không hợp lệ. */
+export function parseMoneyInput(raw: string): number {
+  const neg = raw.trim().startsWith("-");
+  const s = raw.replace(/\./g, "").replace(",", ".").replace(/-/g, "");
+  if (!s) return NaN;
+  const n = Number(s);
+  return neg ? -n : n;
+}
+
+/** Đổi số sang chuỗi nhập đã format, dùng khi mở dialog sửa. */
+export function moneyToInput(n: number): string {
+  return formatMoneyInput(String(n).replace(".", ","));
+}
+
 /** Định dạng gọn (vd 1.2tr) cho badge nhỏ trên lịch. */
 export function formatCompact(amount: number): string {
   const abs = Math.abs(amount);

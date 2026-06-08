@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { cn, vnTodayKey } from "@/lib/utils";
+import { cn, vnTodayKey, formatMoneyInput, parseMoneyInput, moneyToInput } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import type { Transaction, TxType } from "@/lib/types";
 
@@ -41,7 +41,7 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
     if (!open) return;
     if (editing) {
       setType(editing.type);
-      setAmount(String(editing.amount));
+      setAmount(moneyToInput(editing.amount));
       setDate(editing.date);
       setAccountId(editing.accountId);
       setCategoryId(editing.categoryId ?? "");
@@ -61,7 +61,7 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const value = Number(amount);
+    const value = parseMoneyInput(amount);
 
     if (!amount || Number.isNaN(value)) {
       setError("Vui lòng nhập số tiền hợp lệ.");
@@ -143,13 +143,10 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
           <Label htmlFor="amount">Số tiền</Label>
           <Input
             id="amount"
-            inputMode="decimal"
-            type="number"
-            step="0.01"
-            min="0.01"
+            inputMode="numeric"
             placeholder="0"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => setAmount(formatMoneyInput(e.target.value))}
             autoFocus
           />
         </div>

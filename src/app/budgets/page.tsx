@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
-import { cn, formatCurrency, periodInterval, PERIOD_LABEL } from "@/lib/utils";
+import { cn, formatCurrency, formatMoneyInput, parseMoneyInput, moneyToInput, periodInterval, PERIOD_LABEL } from "@/lib/utils";
 import type { Budget, BudgetPeriod } from "@/lib/types";
 
 export default function BudgetsPage() {
@@ -203,14 +203,14 @@ function BudgetDialog({
   React.useEffect(() => {
     if (!open) return;
     setCategoryId(editing?.categoryId ?? categories[0]?.id ?? "");
-    setAmount(editing ? String(editing.amount) : "");
+    setAmount(editing ? moneyToInput(editing.amount) : "");
     setPeriod(editing?.period ?? "monthly");
     setError(null);
   }, [open, editing, categories]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const value = Number(amount);
+    const value = parseMoneyInput(amount);
     if (!categoryId) {
       setError("Vui lòng chọn danh mục.");
       return;
@@ -253,11 +253,9 @@ function BudgetDialog({
             <Label htmlFor="bud-amount">Hạn mức</Label>
             <Input
               id="bud-amount"
-              type="number"
-              step="0.01"
-              min="0.01"
+              inputMode="numeric"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAmount(formatMoneyInput(e.target.value))}
               autoFocus
             />
           </div>

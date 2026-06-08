@@ -1,23 +1,32 @@
 "use client";
 
 import * as React from "react";
-import { Download, Coins } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Download, Coins, Trash2, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Dialog } from "@/components/ui/dialog";
+import { createClient } from "@/lib/supabase/client";
 import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
+import { toast } from "@/lib/toast";
 
 const CURRENCIES = ["VND", "USD", "EUR", "JPY", "GBP", "AUD", "SGD", "KRW"];
 
 export default function SettingsPage() {
   const hydrated = useHydrated();
+  const router = useRouter();
   const baseCurrency = useStore((s) => s.baseCurrency);
   const setBaseCurrency = useStore((s) => s.setBaseCurrency);
   const exportData = useStore((s) => s.exportData);
 
   const [msg, setMsg] = React.useState<{ ok: boolean; text: string } | null>(null);
+  const [delOpen, setDelOpen] = React.useState(false);
+  const [confirmText, setConfirmText] = React.useState("");
+  const [deleting, setDeleting] = React.useState(false);
 
   function handleExport() {
     const json = exportData();
@@ -29,6 +38,28 @@ export default function SettingsPage() {
     a.click();
     URL.revokeObjectURL(url);
     setMsg({ ok: true, text: "Đã tải file sao lưu." });
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/account/delete", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        toast.error(data.reason ?? "Không xóa được tài khoản. Vui lòng thử lại.");
+        setDeleting(false);
+        return;
+      }
+      // Dọn phiên trình duyệt rồi đưa về trang đăng nhập.
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      useStore.getState().clear();
+      router.push("/login");
+      router.refresh();
+    } catch {
+      toast.error("Không kết nối được tới máy chủ. Vui lòng thử lại.");
+      setDeleting(false);
+    }
   }
 
   return (
@@ -97,6 +128,71 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base text-destructive">
+            <Trash2 className="size-5" /> Vùng nguy hiểm
+          </CardTitle>
+          <CardDescription>
+            Xóa vĩnh viễn tài khoản cùng toàn bộ ví, giao dịch, ngân sách và dữ liệu
+            khác. Hành động này <strong>không thể hoàn tác</strong>. Nên xuất một bản
+            sao lưu trước khi xóa.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              setConfirmText("");
+              setDelOpen(true);
+            }}
+          >
+            <Trash2 className="size-4" /> Xóa tài khoản
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={delOpen}
+        onClose={() => !deleting && setDelOpen(false)}
+        title="Xóa tài khoản vĩnh viễn?"
+        className="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Toàn bộ dữ liệu của bạn sẽ bị xóa ngay lập tức và không thể khôi phục.
+            Gõ <strong>XÓA</strong> vào ô bên dưới để xác nhận.
+          </p>
+          <div>
+            <Label htmlFor="confirm-del">Xác nhận</Label>
+            <Input
+              id="confirm-del"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="XÓA"
+              autoComplete="off"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDelOpen(false)}
+              disabled={deleting}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={confirmText.trim().toUpperCase() !== "XÓA" || deleting}
+              onClick={handleDeleteAccount}
+            >
+              {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+              Xóa vĩnh viễn
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

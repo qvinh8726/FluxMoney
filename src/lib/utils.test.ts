@@ -5,6 +5,9 @@ import {
   periodInterval,
   vnTodayKey,
   formatCurrency,
+  formatMoneyInput,
+  parseMoneyInput,
+  moneyToInput,
 } from "./utils";
 
 describe("toDateKey", () => {
@@ -49,5 +52,49 @@ describe("formatCurrency", () => {
   it("VND không có phần lẻ", () => {
     const s = formatCurrency(1000, "VND");
     expect(s).not.toMatch(/[.,]\d{2}\D*$/);
+  });
+});
+
+describe("formatMoneyInput", () => {
+  it("chèn dấu chấm ngăn cách nghìn", () => {
+    expect(formatMoneyInput("1000")).toBe("1.000");
+    expect(formatMoneyInput("1234567")).toBe("1.234.567");
+  });
+  it("bỏ ký tự không phải số", () => {
+    expect(formatMoneyInput("1a2b3c")).toBe("123");
+  });
+  it("giữ phần thập phân sau dấu phẩy, tối đa 2 chữ số", () => {
+    expect(formatMoneyInput("1000,5")).toBe("1.000,5");
+    expect(formatMoneyInput("1000,567")).toBe("1.000,56");
+  });
+  it("chỉ giữ một dấu phẩy thập phân", () => {
+    expect(formatMoneyInput("1,2,3")).toBe("1,23");
+  });
+  it("giữ dấu trừ ở đầu cho số âm", () => {
+    expect(formatMoneyInput("-5000")).toBe("-5.000");
+  });
+  it("chuỗi rỗng trả về rỗng", () => {
+    expect(formatMoneyInput("")).toBe("");
+  });
+});
+
+describe("parseMoneyInput", () => {
+  it("đổi chuỗi đã format về số", () => {
+    expect(parseMoneyInput("1.234.567")).toBe(1234567);
+    expect(parseMoneyInput("1.000,5")).toBe(1000.5);
+  });
+  it("xử lý số âm", () => {
+    expect(parseMoneyInput("-5.000")).toBe(-5000);
+  });
+  it("chuỗi rỗng trả về NaN", () => {
+    expect(parseMoneyInput("")).toBeNaN();
+  });
+});
+
+describe("moneyToInput round-trip", () => {
+  it("format rồi parse trả lại giá trị gốc", () => {
+    for (const n of [0, 1000, 1234567, 1000.5, -5000, 999999999.99]) {
+      expect(parseMoneyInput(moneyToInput(n))).toBe(n);
+    }
   });
 });

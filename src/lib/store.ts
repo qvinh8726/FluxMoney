@@ -47,6 +47,7 @@ interface State {
   addTransaction: (t: Omit<Transaction, "id" | "createdAt">) => Promise<void>;
   updateTransaction: (id: string, patch: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
+  restoreTransaction: (t: Transaction) => Promise<void>;
 
   addAccount: (a: Omit<Account, "id" | "createdAt">) => Promise<void>;
   updateAccount: (id: string, patch: Partial<Account>) => Promise<void>;
@@ -63,6 +64,7 @@ interface State {
   addTransfer: (t: Omit<Transfer, "id" | "createdAt">) => Promise<void>;
   updateTransfer: (id: string, patch: Partial<Transfer>) => Promise<void>;
   deleteTransfer: (id: string) => Promise<void>;
+  restoreTransfer: (t: Transfer) => Promise<void>;
 
   addRecurring: (r: Omit<RecurringRule, "id" | "createdAt">) => Promise<void>;
   updateRecurring: (id: string, patch: Partial<RecurringRule>) => Promise<void>;
@@ -187,12 +189,50 @@ export const useStore = create<State>()((set, get) => ({
     }));
   },
   deleteTransaction: async (id) => {
+    const removed = get().transactions.find((t) => t.id === id);
     const { error } = await supabase.from("transactions").delete().eq("id", id);
     if (error) {
       toast.error("Không xóa được giao dịch. Vui lòng thử lại.");
       return;
     }
     set((s) => ({ transactions: s.transactions.filter((t) => t.id !== id) }));
+    if (removed) {
+      toast.withAction("Đã xóa giao dịch.", {
+        label: "Hoàn tác",
+        onClick: () => get().restoreTransaction(removed),
+      });
+    }
+  },
+  restoreTransaction: async (t) => {
+    const userId = get().userId;
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from("transactions")
+      .insert({
+        id: t.id,
+        user_id: userId,
+        type: t.type,
+        amount: t.amount,
+        date: t.date,
+        account_id: t.accountId,
+        category_id: t.categoryId,
+        note: t.note ?? null,
+        currency: get().baseCurrency,
+        created_at: t.createdAt,
+      })
+      .select()
+      .single();
+    if (error || !data) {
+      toast.error("Không hoàn tác được. Giao dịch có thể đã bị xóa vĩnh viễn.");
+      return;
+    }
+    set((s) => ({
+      transactions: [toTransaction(data), ...s.transactions].sort((a, b) =>
+        a.date === b.date
+          ? b.createdAt.localeCompare(a.createdAt)
+          : b.date.localeCompare(a.date)
+      ),
+    }));
   },
 
   // ---------- Accounts ----------
@@ -388,12 +428,48 @@ export const useStore = create<State>()((set, get) => ({
     }));
   },
   deleteTransfer: async (id) => {
+    const removed = get().transfers.find((t) => t.id === id);
     const { error } = await supabase.from("transfers").delete().eq("id", id);
     if (error) {
       toast.error("Không xóa được chuyển khoản. Vui lòng thử lại.");
       return;
     }
     set((s) => ({ transfers: s.transfers.filter((t) => t.id !== id) }));
+    if (removed) {
+      toast.withAction("Đã xóa chuyển khoản.", {
+        label: "Hoàn tác",
+        onClick: () => get().restoreTransfer(removed),
+      });
+    }
+  },
+  restoreTransfer: async (t) => {
+    const userId = get().userId;
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from("transfers")
+      .insert({
+        id: t.id,
+        user_id: userId,
+        from_account_id: t.fromAccountId,
+        to_account_id: t.toAccountId,
+        amount: t.amount,
+        date: t.date,
+        note: t.note ?? null,
+        created_at: t.createdAt,
+      })
+      .select()
+      .single();
+    if (error || !data) {
+      toast.error("Không hoàn tác được. Chuyển khoản có thể đã bị xóa vĩnh viễn.");
+      return;
+    }
+    set((s) => ({
+      transfers: [toTransfer(data), ...s.transfers].sort((a, b) =>
+        a.date === b.date
+          ? b.createdAt.localeCompare(a.createdAt)
+          : b.date.localeCompare(a.date)
+      ),
+    }));
   },
 
   // ---------- Recurring rules ----------

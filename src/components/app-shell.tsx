@@ -36,24 +36,29 @@ const nav = [
   { href: "/settings", label: "Cài đặt", icon: Settings },
 ];
 
+// Các trang đứng riêng, không dùng khung sidebar và không nạp dữ liệu user.
+const STANDALONE_PATHS = ["/login", "/terms", "/privacy"];
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
   const loaded = useStore((s) => s.loaded);
   const loadAll = useStore((s) => s.loadAll);
 
+  const standalone = STANDALONE_PATHS.includes(pathname);
+
   React.useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
   React.useEffect(() => {
-    if (pathname !== "/login") {
+    if (!standalone) {
       loadAll();
     }
-  }, [pathname, loadAll]);
+  }, [standalone, loadAll]);
 
-  // Trang đăng nhập không dùng khung sidebar.
-  if (pathname === "/login") {
+  // Trang đứng riêng không dùng khung sidebar.
+  if (standalone) {
     return <>{children}</>;
   }
 
@@ -173,6 +178,15 @@ function SidebarContent({ pathname }: { pathname: string }) {
         >
           <LogOut className="size-5" /> Đăng xuất
         </Button>
+        <div className="mt-2 flex items-center gap-2 px-2 text-xs text-muted-foreground">
+          <Link href="/terms" className="hover:text-foreground hover:underline">
+            Điều khoản
+          </Link>
+          <span aria-hidden>·</span>
+          <Link href="/privacy" className="hover:text-foreground hover:underline">
+            Quyền riêng tư
+          </Link>
+        </div>
       </div>
     </>
   );

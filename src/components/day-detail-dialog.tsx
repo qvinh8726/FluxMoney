@@ -114,7 +114,6 @@ export function DayDetailDialog({ open, onClose, dateKey, onAdd, onEdit }: Props
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-8"
                       aria-label="Sửa"
                       onClick={() => onEdit(t)}
                     >
@@ -123,7 +122,7 @@ export function DayDetailDialog({ open, onClose, dateKey, onAdd, onEdit }: Props
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-8 text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive"
                       aria-label="Xóa"
                       onClick={() => setToDelete(t.id)}
                     >
@@ -145,7 +144,7 @@ export function DayDetailDialog({ open, onClose, dateKey, onAdd, onEdit }: Props
           if (toDelete) deleteTransaction(toDelete);
         }}
         title="Xóa giao dịch này?"
-        description="Hành động không thể hoàn tác."
+        description="Bạn có thể hoàn tác ngay sau khi xóa."
         confirmLabel="Xóa"
         destructive
       />

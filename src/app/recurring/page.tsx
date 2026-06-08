@@ -12,7 +12,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
-import { cn, formatCurrency, toDateKey, vnTodayKey } from "@/lib/utils";
+import { cn, formatCurrency, formatMoneyInput, parseMoneyInput, moneyToInput, toDateKey, vnTodayKey } from "@/lib/utils";
 import type { RecurringRule, RecurringFrequency, TxType } from "@/lib/types";
 
 const FREQ_LABEL: Record<RecurringFrequency, string> = {
@@ -119,7 +119,6 @@ export default function RecurringPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-8"
                       aria-label={r.paused ? "Tiếp tục" : "Tạm dừng"}
                       onClick={() => updateRecurring(r.id, { paused: !r.paused })}
                     >
@@ -128,7 +127,6 @@ export default function RecurringPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-8"
                       aria-label="Sửa"
                       onClick={() => {
                         setEditing(r);
@@ -140,7 +138,7 @@ export default function RecurringPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-8 text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive"
                       aria-label="Xóa"
                       onClick={() => setToDelete(r)}
                     >
@@ -199,7 +197,7 @@ function RecurringDialog({
     if (!open) return;
     if (editing) {
       setType(editing.type);
-      setAmount(String(editing.amount));
+      setAmount(moneyToInput(editing.amount));
       setAccountId(editing.accountId);
       setCategoryId(editing.categoryId ?? "");
       setFrequency(editing.frequency);
@@ -223,7 +221,7 @@ function RecurringDialog({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const value = Number(amount);
+    const value = parseMoneyInput(amount);
     if (!amount || Number.isNaN(value) || value < 0.01 || value > 999_999_999.99) {
       setError("Số tiền phải từ 0,01 đến 999.999.999,99.");
       return;
@@ -288,8 +286,8 @@ function RecurringDialog({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="r-amount">Số tiền</Label>
-            <Input id="r-amount" type="number" step="0.01" min="0.01" value={amount}
-              onChange={(e) => setAmount(e.target.value)} autoFocus />
+            <Input id="r-amount" inputMode="numeric" value={amount}
+              onChange={(e) => setAmount(formatMoneyInput(e.target.value))} autoFocus />
           </div>
           <div>
             <Label htmlFor="r-freq">Tần suất</Label>
