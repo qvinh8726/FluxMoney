@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TransactionDialog } from "@/components/transaction-dialog";
 import { DayDetailDialog } from "@/components/day-detail-dialog";
+import { StreakBadge } from "@/components/streak-badge";
 import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
 import { cn, formatCompact, formatCurrency, toDateKey } from "@/lib/utils";
@@ -102,6 +103,9 @@ export default function CalendarPage() {
           <Plus /> Thêm giao dịch
         </Button>
       </div>
+
+      {/* Streak */}
+      <StreakBadge />
 
       {/* Summary */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
