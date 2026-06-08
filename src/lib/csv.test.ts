@@ -159,6 +159,77 @@ describe("transactionsToCsv", () => {
     expect(lines[1]).toContain("2026-06-01");
     expect(lines[2]).toContain("2026-06-02");
   });
+
+  // --- Formula injection protection ---
+
+  it("[injection] ghi chú bắt đầu bằng '=' → được prefix \"'\"", () => {
+    const result = transactionsToCsv(
+      [tx({ note: "=cmd|'/C calc'!A0" })],
+      accounts,
+      categories
+    );
+    // ô ghi chú phải bắt đầu bằng ' (và vì chứa dấu phẩy + nháy đơn, sẽ được bọc "")
+    expect(result).toContain("'=cmd|");
+  });
+
+  it("[injection] ghi chú bắt đầu bằng '+' → được prefix \"'\"", () => {
+    const result = transactionsToCsv(
+      [tx({ note: "+1234" })],
+      accounts,
+      categories
+    );
+    expect(result).toContain("'+1234");
+  });
+
+  it("[injection] ghi chú bắt đầu bằng '-' → được prefix \"'\"", () => {
+    const result = transactionsToCsv(
+      [tx({ note: "-SUM(A1:A10)" })],
+      accounts,
+      categories
+    );
+    expect(result).toContain("'-SUM(A1:A10)");
+  });
+
+  it("[injection] ghi chú bắt đầu bằng '@' → được prefix \"'\"", () => {
+    const result = transactionsToCsv(
+      [tx({ note: "@SUM(1+1)*cmd|' /C calc'!A0" })],
+      accounts,
+      categories
+    );
+    expect(result).toContain("'@SUM");
+  });
+
+  it("[injection] ghi chú vừa nguy hiểm vừa chứa dấu phẩy → prefix ' VÀ bọc nháy kép", () => {
+    const result = transactionsToCsv(
+      [tx({ note: "=HYPERLINK(\"evil.com\",\"click me\")" })],
+      accounts,
+      categories
+    );
+    // ô phải có prefix ' (chặn injection) VÀ bọc "" (RFC4180 vì có phẩy/nháy kép)
+    // Kết quả mong đợi trong CSV: "'=HYPERLINK(""evil.com"",""click me"")"
+    expect(result).toContain('"\'=HYPERLINK');
+  });
+
+  it("[injection] số tiền là number âm KHÔNG bị prefix '", () => {
+    // tx.amount là number, String(-5000) = "-5000" nhưng KHÔNG được thêm '
+    const result = transactionsToCsv(
+      [tx({ amount: -5000 })],
+      accounts,
+      categories
+    );
+    expect(result).toContain("-5000");
+    expect(result).not.toContain("'-5000");
+  });
+
+  it("[injection] số tiền là number dương KHÔNG bị prefix '", () => {
+    const result = transactionsToCsv(
+      [tx({ amount: 100000 })],
+      accounts,
+      categories
+    );
+    expect(result).toContain("100000");
+    expect(result).not.toContain("'100000");
+  });
 });
 
 // --- Test transfersToCsv ---

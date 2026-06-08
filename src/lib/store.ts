@@ -708,6 +708,7 @@ export const useStore = create<State>()((set, get) => ({
         budgets: s.budgets,
         transfers: s.transfers,
         recurringRules: s.recurringRules,
+        savingsGoals: s.savingsGoals,
       },
       null,
       2

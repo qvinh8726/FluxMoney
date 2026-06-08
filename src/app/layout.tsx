@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -13,11 +13,14 @@ const beVietnam = Be_Vietnam_Pro({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
+};
+
 export const metadata: Metadata = {
   title: "FluxMoney — Quản lý dòng tiền theo lịch",
   description:
     "FluxMoney: ứng dụng quản lý dòng tiền cá nhân với giao diện lịch trực quan — theo dõi thu chi, ví, ngân sách và báo cáo.",
-  themeColor: "#2563eb",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

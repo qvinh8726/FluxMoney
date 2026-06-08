@@ -47,8 +47,8 @@ export async function POST(req: Request) {
   let body = "Bạn có thông báo mới.";
   try {
     const parsed = await req.json();
-    if (parsed.title) title = parsed.title;
-    if (parsed.body) body = parsed.body;
+    if (parsed.title) title = String(parsed.title).slice(0, 200);
+    if (parsed.body) body = String(parsed.body).slice(0, 500);
   } catch {
     // Dùng giá trị mặc định
   }
@@ -91,5 +91,27 @@ export async function POST(req: Request) {
   const sent = results.filter((r) => r.status === "fulfilled").length;
   const failed = results.filter((r) => r.status === "rejected").length;
 
-  return NextResponse.json({ ok: true, sent, failed });
+  // ── Dọn subscription chết (410 Gone / 404) ────────────────────────────────
+  const deadEndpoints: string[] = [];
+  results.forEach((result, i) => {
+    if (
+      result.status === "rejected" &&
+      (result.reason?.statusCode === 410 || result.reason?.statusCode === 404)
+    ) {
+      deadEndpoints.push(subs[i].endpoint);
+    }
+  });
+
+  if (deadEndpoints.length > 0) {
+    try {
+      await supabase
+        .from("push_subscriptions")
+        .delete()
+        .in("endpoint", deadEndpoints);
+    } catch (cleanErr) {
+      console.error("push/send cleanup error:", cleanErr);
+    }
+  }
+
+  return NextResponse.json({ ok: true, sent, failed, cleaned: deadEndpoints.length });
 }

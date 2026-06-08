@@ -83,16 +83,21 @@ export default function SavingsPage() {
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{g.name}</p>
-                      {g.deadline && (
-                        <p className="text-xs text-muted-foreground">
-                          Hạn:{" "}
-                          {new Date(g.deadline).toLocaleDateString("vi-VN", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                          })}
-                        </p>
-                      )}
+                      {g.deadline && (() => {
+                        // Parse thủ công tránh bẫy UTC của new Date("YYYY-MM-DD")
+                        const [y, m, d] = g.deadline.split("-").map(Number);
+                        const deadlineDate = new Date(y, m - 1, d);
+                        return (
+                          <p className="text-xs text-muted-foreground">
+                            Hạn:{" "}
+                            {deadlineDate.toLocaleDateString("vi-VN", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                            })}
+                          </p>
+                        );
+                      })()}
                       {g.note && (
                         <p className="mt-0.5 text-xs text-muted-foreground truncate">
                           {g.note}

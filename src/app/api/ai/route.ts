@@ -101,8 +101,9 @@ export async function POST(req: Request) {
 
     if (!res.ok) {
       const text = await res.text();
+      console.error("AI provider error:", res.status, text);
       return NextResponse.json(
-        { available: false, reason: `Lỗi từ nhà cung cấp AI (${res.status}).`, detail: text.slice(0, 200) },
+        { available: false, reason: `Lỗi từ nhà cung cấp AI (${res.status}).` },
         { status: 502 }
       );
     }

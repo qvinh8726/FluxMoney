@@ -41,7 +41,8 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (
     url.pathname.startsWith("/api/") ||
-    url.hostname.includes("supabase.co")
+    url.hostname.includes("supabase.co") ||
+    url.pathname.startsWith("/login")
   ) {
     return;
   }

@@ -6,11 +6,28 @@ import type { Transaction, Account, Category, Transfer } from "./types";
 
 // --- Hàm nội bộ ---
 
-/** Escape một ô CSV theo RFC 4180 */
+/** Escape một ô CSV theo RFC 4180 + chống formula injection (OWASP) */
 function escapeCell(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "";
-  const str = String(value);
-  // Bọc trong nháy kép nếu có dấu phẩy, nháy kép, hoặc xuống dòng
+
+  // Số (number) để nguyên, chỉ qua RFC 4180 — Excel nhận là number, không prefix
+  if (typeof value === "number") {
+    const str = String(value);
+    if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  let str = String(value);
+
+  // Chống CSV formula injection: prefix ' nếu ô text bắt đầu bằng ký tự nguy hiểm
+  // Các ký tự bị Excel/Google Sheets diễn giải là công thức: = + - @ \t \r
+  if (str.length > 0 && /^[=+\-@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
+
+  // RFC 4180: bọc trong nháy kép nếu có dấu phẩy, nháy kép, hoặc xuống dòng
   if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
     return '"' + str.replace(/"/g, '""') + '"';
   }

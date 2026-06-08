@@ -39,6 +39,24 @@ export async function POST(req: Request) {
     );
   }
 
+  // Validate format endpoint và giới hạn độ dài
+  if (!endpoint.startsWith("https://")) {
+    return NextResponse.json(
+      { ok: false, reason: "Endpoint không hợp lệ." },
+      { status: 400 }
+    );
+  }
+  if (
+    endpoint.length > 1000 ||
+    keys.p256dh.length > 500 ||
+    keys.auth.length > 500
+  ) {
+    return NextResponse.json(
+      { ok: false, reason: "Dữ liệu không hợp lệ." },
+      { status: 400 }
+    );
+  }
+
   // Upsert để tránh trùng endpoint (người dùng có thể đăng ký lại)
   const { error } = await supabase
     .from("push_subscriptions")
