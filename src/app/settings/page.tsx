@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Download, Coins, Trash2, Loader2 } from "lucide-react";
+import { Download, FileSpreadsheet, Coins, Trash2, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
 import { toast } from "@/lib/toast";
+import { transactionsToCsv, transfersToCsv } from "@/lib/csv";
 
 const CURRENCIES = ["VND", "USD", "EUR", "JPY", "GBP", "AUD", "SGD", "KRW"];
 
@@ -22,11 +23,42 @@ export default function SettingsPage() {
   const baseCurrency = useStore((s) => s.baseCurrency);
   const setBaseCurrency = useStore((s) => s.setBaseCurrency);
   const exportData = useStore((s) => s.exportData);
+  const transactions = useStore((s) => s.transactions);
+  const accounts = useStore((s) => s.accounts);
+  const categories = useStore((s) => s.categories);
+  const transfers = useStore((s) => s.transfers);
 
   const [msg, setMsg] = React.useState<{ ok: boolean; text: string } | null>(null);
   const [delOpen, setDelOpen] = React.useState(false);
   const [confirmText, setConfirmText] = React.useState("");
   const [deleting, setDeleting] = React.useState(false);
+
+  function handleExportCsv() {
+    const BOM = "﻿";
+    // Xuất giao dịch
+    const txCsv = transactionsToCsv(transactions, accounts, categories);
+    const txBlob = new Blob([BOM + txCsv], { type: "text/csv;charset=utf-8;" });
+    const txUrl = URL.createObjectURL(txBlob);
+    const txA = document.createElement("a");
+    txA.href = txUrl;
+    txA.download = `fluxmoney-${new Date().toISOString().slice(0, 10)}.csv`;
+    txA.click();
+    URL.revokeObjectURL(txUrl);
+
+    // Xuất chuyển khoản nếu có
+    if (transfers.length > 0) {
+      const trCsv = transfersToCsv(transfers, accounts);
+      const trBlob = new Blob([BOM + trCsv], { type: "text/csv;charset=utf-8;" });
+      const trUrl = URL.createObjectURL(trBlob);
+      const trA = document.createElement("a");
+      trA.href = trUrl;
+      trA.download = `fluxmoney-chuyen-khoan-${new Date().toISOString().slice(0, 10)}.csv`;
+      trA.click();
+      URL.revokeObjectURL(trUrl);
+    }
+
+    setMsg({ ok: true, text: "Đã tải file CSV. Mở bằng Excel để xem dữ liệu." });
+  }
 
   function handleExport() {
     const json = exportData();
@@ -122,9 +154,12 @@ export default function SettingsPage() {
             truy cập được. Bạn có thể tải một bản sao lưu offline.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-wrap gap-3">
           <Button variant="outline" onClick={handleExport}>
             <Download className="size-4" /> Xuất dữ liệu (.json)
+          </Button>
+          <Button variant="outline" onClick={handleExportCsv}>
+            <FileSpreadsheet className="size-4" /> Xuất CSV (Excel)
           </Button>
         </CardContent>
       </Card>

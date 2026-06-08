@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, vnTodayKey, formatMoneyInput, parseMoneyInput, moneyToInput } from "@/lib/utils";
 import { useStore } from "@/lib/store";
+import { suggestCategories } from "@/lib/category-suggest";
 import type { Transaction, TxType } from "@/lib/types";
 
 interface Props {
@@ -25,6 +26,7 @@ const MAX_AMOUNT = 999_999_999.99;
 export function TransactionDialog({ open, onClose, editing, defaultDate }: Props) {
   const accounts = useStore((s) => s.accounts);
   const categories = useStore((s) => s.categories);
+  const transactions = useStore((s) => s.transactions);
   const addTransaction = useStore((s) => s.addTransaction);
   const updateTransaction = useStore((s) => s.updateTransaction);
 
@@ -35,6 +37,8 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
   const [categoryId, setCategoryId] = React.useState<string>("");
   const [note, setNote] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+  // true khi user đã tự chọn danh mục → ẩn chip gợi ý
+  const [userPickedCategory, setUserPickedCategory] = React.useState(false);
 
   // Khởi tạo giá trị mỗi khi mở dialog.
   React.useEffect(() => {
@@ -58,6 +62,16 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
   }, [open, editing, defaultDate, accounts]);
 
   const visibleCategories = categories.filter((c) => c.type === type);
+
+  // Gợi ý danh mục dựa trên lịch sử — chỉ tính lại khi note/type thay đổi
+  const suggestions = React.useMemo(
+    () => suggestCategories({ note, type }, transactions, categories, 3),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [note, type, transactions, categories]
+  );
+
+  // Chip chỉ hiện khi: chưa chọn thủ công, có gợi ý, không phải chế độ sửa
+  const showChips = !userPickedCategory && !editing && suggestions.length > 0;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -112,6 +126,7 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
             onClick={() => {
               setType("expense");
               setCategoryId("");
+              setUserPickedCategory(false);
             }}
             className={cn(
               "rounded-lg border py-2.5 text-sm font-medium transition-colors cursor-pointer",
@@ -127,6 +142,7 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
             onClick={() => {
               setType("income");
               setCategoryId("");
+              setUserPickedCategory(false);
             }}
             className={cn(
               "rounded-lg border py-2.5 text-sm font-medium transition-colors cursor-pointer",
@@ -180,10 +196,43 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
 
         <div>
           <Label htmlFor="category">Danh mục</Label>
+          {/* Chip gợi ý — chỉ hiện khi tạo mới và chưa chọn thủ công */}
+          {showChips && (
+            <div className="flex flex-wrap gap-2 mt-1 mb-2">
+              {suggestions.map((s) => {
+                const cat = categories.find((c) => c.id === s.categoryId);
+                if (!cat) return null;
+                const isSelected = categoryId === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      setCategoryId(cat.id);
+                      setUserPickedCategory(true);
+                    }}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors",
+                      "min-h-[44px] cursor-pointer",
+                      isSelected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-background hover:bg-accent"
+                    )}
+                  >
+                    <span>{cat.icon}</span>
+                    <span>{cat.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <Select
             id="category"
             value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
+            onChange={(e) => {
+              setCategoryId(e.target.value);
+              setUserPickedCategory(true);
+            }}
           >
             <option value="">Chưa phân loại</option>
             {visibleCategories.map((c) => (
