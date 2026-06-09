@@ -13,7 +13,8 @@ export const config = {
      * - favicon, file ảnh
      * - /api (route API tự xử lý phiên riêng)
      * - manifest.webmanifest, sw.js (asset PWA phải truy cập được khi chưa đăng nhập)
+     * - .well-known (assetlinks.json cho TWA — phải truy cập công khai)
      */
-    "/((?!_next/static|_next/image|favicon.ico|api|manifest.webmanifest|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api|manifest.webmanifest|sw.js|\\.well-known|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

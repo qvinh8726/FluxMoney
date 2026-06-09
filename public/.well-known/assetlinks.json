@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.fluxmoney.app",
+      "sha256_cert_fingerprints": [
+        "75:B9:BC:81:98:1A:14:77:A7:48:9B:F0:45:88:F6:5F:00:0A:96:60:D1:4A:B1:2F:FB:CF:96:6E:69:1F:F6:BB"
+      ]
+    }
+  }
+]
