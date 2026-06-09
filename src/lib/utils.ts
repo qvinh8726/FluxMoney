@@ -21,10 +21,11 @@ export function formatCurrency(
   locale: string = "vi-VN"
 ): string {
   try {
+    // Không hardcode số chữ số thập phân: Intl đã biết số đơn vị phụ đúng cho
+    // từng tiền tệ (VND/JPY/KRW = 0, BHD/KWD = 3, còn lại = 2).
     return new Intl.NumberFormat(locale, {
       style: "currency",
       currency,
-      maximumFractionDigits: currency === "VND" ? 0 : 2,
     }).format(amount);
   } catch {
     return `${amount.toLocaleString(locale)} ${currency}`;
@@ -67,7 +68,8 @@ export function moneyToInput(n: number): string {
 /** Định dạng gọn (vd 1.2tr) cho badge nhỏ trên lịch. */
 export function formatCompact(amount: number): string {
   const abs = Math.abs(amount);
-  if (abs >= 1_000_000_000) return `${(amount / 1_000_000_000).toFixed(1)}T`;
+  // 'tỷ' theo quy ước VN; tránh 'T' dễ bị đọc nhầm là trillion/Tera.
+  if (abs >= 1_000_000_000) return `${(amount / 1_000_000_000).toFixed(1)}tỷ`;
   if (abs >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}tr`;
   if (abs >= 1_000) return `${(amount / 1_000).toFixed(0)}k`;
   return `${amount}`;
@@ -116,4 +118,14 @@ export function vnTodayKey(): string {
   const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
   const vn = new Date(utcMs + 7 * 3600000);
   return toDateKey(vn);
+}
+
+/**
+ * So sánh một ngày dạng chuỗi "YYYY-MM-DD" với một mốc Date theo cùng
+ * tháng+năm, dựa hoàn toàn trên chuỗi để tránh lệch timezone. `new Date("YYYY-MM-DD")`
+ * parse ra UTC midnight nên ở múi giờ âm sẽ lùi sang tháng trước; so sánh
+ * tiền tố "YYYY-MM" loại bỏ hẳn rủi ro đó.
+ */
+export function isSameMonthKey(dateStr: string, ref: Date): boolean {
+  return dateStr.slice(0, 7) === toDateKey(ref).slice(0, 7);
 }

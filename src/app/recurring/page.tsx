@@ -22,14 +22,15 @@ const FREQ_LABEL: Record<RecurringFrequency, string> = {
   yearly: "Hằng năm",
 };
 
+const FREQ_NEXT: Record<RecurringFrequency, (d: Date, n: number) => Date> = {
+  daily: addDays,
+  weekly: addWeeks,
+  monthly: addMonths,
+  yearly: addYears,
+};
+
 function nextDate(dateStr: string, freq: RecurringFrequency): string {
-  const d = parseISO(dateStr);
-  const n =
-    freq === "daily" ? addDays(d, 1)
-    : freq === "weekly" ? addWeeks(d, 1)
-    : freq === "monthly" ? addMonths(d, 1)
-    : addYears(d, 1);
-  return toDateKey(n);
+  return toDateKey(FREQ_NEXT[freq](parseISO(dateStr), 1));
 }
 
 function nextRunLabel(r: RecurringRule): string {
@@ -193,6 +194,11 @@ function RecurringDialog({
   const [note, setNote] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
 
+  // Đọc accounts qua ref để effect khởi tạo KHÔNG phụ thuộc mảng accounts:
+  // tránh hydrate nền đổi reference làm re-chạy effect và xóa input đang gõ.
+  const accountsRef = React.useRef(accounts);
+  accountsRef.current = accounts;
+
   React.useEffect(() => {
     if (!open) return;
     if (editing) {
@@ -207,7 +213,7 @@ function RecurringDialog({
     } else {
       setType("expense");
       setAmount("");
-      setAccountId(accounts[0]?.id ?? "");
+      setAccountId(accountsRef.current[0]?.id ?? "");
       setCategoryId("");
       setFrequency("monthly");
       setStartDate(vnTodayKey());
@@ -215,7 +221,7 @@ function RecurringDialog({
       setNote("");
     }
     setError(null);
-  }, [open, editing, accounts]);
+  }, [open, editing]);
 
   const visibleCategories = categories.filter((c) => c.type === type);
 

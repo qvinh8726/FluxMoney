@@ -10,6 +10,8 @@ function normalize(s: string): string {
   return s
     .normalize("NFD") // tách tổ hợp ký tự
     .replace(/[̀-ͯ]/g, "") // bỏ combining marks (dấu)
+    .replace(/đ/g, "d") // đ/Đ là chữ riêng, NFD không tách → map thủ công
+    .replace(/Đ/g, "d")
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .trim();

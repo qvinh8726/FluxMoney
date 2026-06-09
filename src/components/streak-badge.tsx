@@ -15,6 +15,34 @@ export function StreakBadge() {
 
   const active = hydrated && streak.current > 0;
 
+  // Tách nội dung 3 trạng thái ra hàm với early-return để tránh nested ternary.
+  function renderContent() {
+    if (!hydrated) {
+      return <p className="truncate text-lg font-bold">—</p>;
+    }
+    if (active) {
+      return (
+        <>
+          <p className="text-xs text-muted-foreground">Chuỗi ghi chép</p>
+          <p className="truncate text-lg font-bold">
+            {streak.current} ngày liên tục
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Kỷ lục: {streak.longest} ngày
+          </p>
+        </>
+      );
+    }
+    return (
+      <>
+        <p className="text-xs text-muted-foreground">Chuỗi ghi chép</p>
+        <p className="truncate text-sm font-medium">
+          Ghi giao dịch hôm nay để bắt đầu chuỗi!
+        </p>
+      </>
+    );
+  }
+
   return (
     <Card>
       <CardContent className="flex items-center gap-3 p-4">
@@ -26,28 +54,7 @@ export function StreakBadge() {
         >
           <Flame className="size-5" />
         </span>
-        <div className="min-w-0">
-          {!hydrated ? (
-            <p className="truncate text-lg font-bold">—</p>
-          ) : active ? (
-            <>
-              <p className="text-xs text-muted-foreground">Chuỗi ghi chép</p>
-              <p className="truncate text-lg font-bold">
-                {streak.current} ngày liên tục
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Kỷ lục: {streak.longest} ngày
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-xs text-muted-foreground">Chuỗi ghi chép</p>
-              <p className="truncate text-sm font-medium">
-                Ghi giao dịch hôm nay để bắt đầu chuỗi!
-              </p>
-            </>
-          )}
-        </div>
+        <div className="min-w-0">{renderContent()}</div>
       </CardContent>
     </Card>
   );

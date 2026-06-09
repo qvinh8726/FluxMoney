@@ -28,6 +28,41 @@ interface ChatMsg {
   text: string;
 }
 
+// Suy tone từ tỷ lệ tiết kiệm / số tháng quỹ dự phòng — tách helper để tránh
+// nested ternary (theo checklist dự án) và tái dùng được.
+function savingsRateTone(rate: number): InsightTone {
+  if (rate >= 0.2) return "positive";
+  if (rate >= 0) return "info";
+  return "warning";
+}
+
+function runwayTone(months: number | null): InsightTone {
+  if (months === null) return "info";
+  if (months >= 6) return "positive";
+  if (months < 3) return "warning";
+  return "info";
+}
+
+// Map tone → class nền/chữ, dùng chung cho Highlight và InsightRow (tránh
+// lặp nested ternary). Icon riêng cho InsightRow.
+const TONE_BADGE: Record<InsightTone, string> = {
+  positive: "bg-income/15 text-income",
+  warning: "bg-expense/15 text-expense",
+  info: "bg-primary/10 text-primary",
+};
+
+const TONE_TEXT: Record<InsightTone, string> = {
+  positive: "text-income",
+  warning: "text-expense",
+  info: "text-primary",
+};
+
+const TONE_ICON: Record<InsightTone, React.ComponentType<{ className?: string }>> = {
+  positive: CheckCircle2,
+  warning: AlertTriangle,
+  info: Info,
+};
+
 export default function AiPage() {
   const hydrated = useHydrated();
   const transactions = useStore((s) => s.transactions);
@@ -38,8 +73,8 @@ export default function AiPage() {
   const baseCurrency = useStore((s) => s.baseCurrency);
 
   const analysis = React.useMemo(
-    () => analyze(transactions, accounts, categories, budgets, transfers),
-    [transactions, accounts, categories, budgets, transfers]
+    () => analyze(transactions, accounts, categories, budgets, transfers, baseCurrency),
+    [transactions, accounts, categories, budgets, transfers, baseCurrency]
   );
 
   const [deep, setDeep] = React.useState<string | null>(null);
@@ -117,7 +152,7 @@ export default function AiPage() {
           label="Tỷ lệ tiết kiệm"
           value={`${(analysis.savingsRate * 100).toFixed(0)}%`}
           icon={<PiggyBank className="size-5" />}
-          tone={analysis.savingsRate >= 0.2 ? "positive" : analysis.savingsRate >= 0 ? "info" : "warning"}
+          tone={savingsRateTone(analysis.savingsRate)}
         />
         <Highlight
           label="Dòng tiền ròng tháng"
@@ -139,15 +174,7 @@ export default function AiPage() {
               : "—"
           }
           icon={<ShieldCheck className="size-5" />}
-          tone={
-            analysis.runwayMonths === null
-              ? "info"
-              : analysis.runwayMonths >= 6
-              ? "positive"
-              : analysis.runwayMonths < 3
-              ? "warning"
-              : "info"
-          }
+          tone={runwayTone(analysis.runwayMonths)}
         />
       </div>
 
@@ -307,12 +334,7 @@ function Highlight({
   icon: React.ReactNode;
   tone: InsightTone;
 }) {
-  const toneCls =
-    tone === "positive"
-      ? "bg-income/15 text-income"
-      : tone === "warning"
-      ? "bg-expense/15 text-expense"
-      : "bg-primary/10 text-primary";
+  const toneCls = TONE_BADGE[tone];
   return (
     <Card>
       <CardContent className="p-4">
@@ -335,14 +357,8 @@ function InsightRow({
   title: string;
   detail: string;
 }) {
-  const Icon =
-    tone === "positive" ? CheckCircle2 : tone === "warning" ? AlertTriangle : Info;
-  const cls =
-    tone === "positive"
-      ? "text-income"
-      : tone === "warning"
-      ? "text-expense"
-      : "text-primary";
+  const Icon = TONE_ICON[tone];
+  const cls = TONE_TEXT[tone];
   return (
     <div className="flex gap-3 rounded-lg border p-3">
       <Icon className={cn("mt-0.5 size-5 shrink-0", cls)} />

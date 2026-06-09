@@ -1,14 +1,11 @@
 import {
-  endOfMonth,
   getDaysInMonth,
-  isSameMonth,
   isWithinInterval,
   subMonths,
 } from "date-fns";
 import type { Account, Budget, Category, Transaction, Transfer } from "./types";
 import { accountBalance } from "./store";
-import { periodInterval } from "./utils";
-import { formatCurrency } from "./utils";
+import { periodInterval, formatCurrency, isSameMonthKey } from "./utils";
 
 export type InsightTone = "positive" | "warning" | "info";
 
@@ -36,7 +33,7 @@ export interface Analysis {
 
 function monthExpenseFor(transactions: Transaction[], ref: Date): number {
   return transactions
-    .filter((t) => t.type === "expense" && isSameMonth(new Date(t.date), ref))
+    .filter((t) => t.type === "expense" && isSameMonthKey(t.date, ref))
     .reduce((s, t) => s + t.amount, 0);
 }
 
@@ -45,11 +42,12 @@ export function analyze(
   accounts: Account[],
   categories: Category[],
   budgets: Budget[],
-  transfers: Transfer[] = []
+  transfers: Transfer[] = [],
+  currency: string = "VND"
 ): Analysis {
   const now = new Date();
 
-  const monthTx = transactions.filter((t) => isSameMonth(new Date(t.date), now));
+  const monthTx = transactions.filter((t) => isSameMonthKey(t.date, now));
   const monthIncome = monthTx
     .filter((t) => t.type === "income")
     .reduce((s, t) => s + t.amount, 0);
@@ -74,8 +72,10 @@ export function analyze(
   );
 
   // Chi trung bình 3 tháng gần nhất để ước lượng runway.
+  // Dùng 3 tháng ĐÃ hoàn thành (1,2,3 tháng trước), KHÔNG gộp tháng hiện tại:
+  // chi tháng này mới một phần sẽ kéo trung bình xuống và thổi phồng runway.
   const avgMonthlyExpense =
-    [0, 1, 2]
+    [1, 2, 3]
       .map((i) => monthExpenseFor(transactions, subMonths(now, i)))
       .reduce((s, v) => s + v, 0) / 3;
   const runwayMonths =
@@ -205,9 +205,10 @@ export function analyze(
     insights.push({
       tone: "info",
       title: "Dự báo chi cả tháng",
-      detail: `Với nhịp hiện tại, ước tính bạn sẽ chi khoảng ${Math.round(
-        projectedExpense
-      ).toLocaleString("vi-VN")} ₫ cho cả tháng.`,
+      detail: `Với nhịp hiện tại, ước tính bạn sẽ chi khoảng ${formatCurrency(
+        Math.round(projectedExpense),
+        currency
+      )} cho cả tháng.`,
     });
   }
 

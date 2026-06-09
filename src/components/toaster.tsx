@@ -28,7 +28,8 @@ export function Toaster() {
         return (
           <div
             key={t.id}
-            role="status"
+            role={t.type === "error" ? "alert" : "status"}
+            aria-live={t.type === "error" ? "assertive" : "polite"}
             className={cn(
               "pointer-events-auto flex w-full max-w-sm items-start gap-2.5 rounded-lg border px-3.5 py-3 text-sm shadow-lg backdrop-blur",
               TONE[t.type]

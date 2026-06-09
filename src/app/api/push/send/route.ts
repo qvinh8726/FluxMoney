@@ -94,10 +94,11 @@ export async function POST(req: Request) {
   // ── Dọn subscription chết (410 Gone / 404) ────────────────────────────────
   const deadEndpoints: string[] = [];
   results.forEach((result, i) => {
-    if (
-      result.status === "rejected" &&
-      (result.reason?.statusCode === 410 || result.reason?.statusCode === 404)
-    ) {
+    if (result.status !== "rejected") return;
+    // web-push reject bằng WebPushError mang statusCode; narrow tường minh
+    // thay vì để reason là any (vi phạm quy ước tránh any).
+    const reason = result.reason as { statusCode?: number } | undefined;
+    if (reason?.statusCode === 410 || reason?.statusCode === 404) {
       deadEndpoints.push(subs[i].endpoint);
     }
   });

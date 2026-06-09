@@ -18,17 +18,15 @@ import { toast } from "./toast";
 import { addDays, addWeeks, addMonths, addYears, parseISO } from "date-fns";
 
 /** Mốc kỳ kế tiếp của một ngày theo tần suất (trả về YYYY-MM-DD). */
+const RECUR_STEP: Record<RecurringFrequency, (d: Date, n: number) => Date> = {
+  daily: addDays,
+  weekly: addWeeks,
+  monthly: addMonths,
+  yearly: addYears,
+};
+
 function nextOccurrence(dateStr: string, freq: RecurringFrequency): string {
-  const d = parseISO(dateStr);
-  const n =
-    freq === "daily"
-      ? addDays(d, 1)
-      : freq === "weekly"
-      ? addWeeks(d, 1)
-      : freq === "monthly"
-      ? addMonths(d, 1)
-      : addYears(d, 1);
-  return toDateKey(n);
+  return toDateKey(RECUR_STEP[freq](parseISO(dateStr), 1));
 }
 
 interface State {
@@ -43,6 +41,7 @@ interface State {
   savingsGoals: SavingsGoal[];
   loaded: boolean;
   loading: boolean;
+  loadError: boolean;
 
   loadAll: () => Promise<void>;
 
@@ -55,12 +54,12 @@ interface State {
   updateAccount: (id: string, patch: Partial<Account>) => Promise<void>;
   deleteAccount: (id: string) => Promise<void>;
 
-  addCategory: (c: Omit<Category, "id">) => Promise<void>;
-  updateCategory: (id: string, patch: Partial<Category>) => Promise<void>;
+  addCategory: (c: Omit<Category, "id">) => Promise<boolean>;
+  updateCategory: (id: string, patch: Partial<Category>) => Promise<boolean>;
   deleteCategory: (id: string) => Promise<void>;
 
-  addBudget: (b: Omit<Budget, "id" | "createdAt">) => Promise<void>;
-  updateBudget: (id: string, patch: Partial<Budget>) => Promise<void>;
+  addBudget: (b: Omit<Budget, "id" | "createdAt">) => Promise<boolean>;
+  updateBudget: (id: string, patch: Partial<Budget>) => Promise<boolean>;
   deleteBudget: (id: string) => Promise<void>;
 
   addTransfer: (t: Omit<Transfer, "id" | "createdAt">) => Promise<void>;
@@ -73,8 +72,8 @@ interface State {
   deleteRecurring: (id: string) => Promise<void>;
   generateDueRecurring: () => Promise<void>;
 
-  addSavingsGoal: (g: Omit<SavingsGoal, "id" | "createdAt">) => Promise<void>;
-  updateSavingsGoal: (id: string, patch: Partial<SavingsGoal>) => Promise<void>;
+  addSavingsGoal: (g: Omit<SavingsGoal, "id" | "createdAt">) => Promise<boolean>;
+  updateSavingsGoal: (id: string, patch: Partial<SavingsGoal>) => Promise<boolean>;
   deleteSavingsGoal: (id: string) => Promise<void>;
 
   setBaseCurrency: (c: string) => Promise<void>;
@@ -89,13 +88,28 @@ const supabase = new Proxy({} as ReturnType<typeof createClient>, {
   get(_target, prop) {
     _client ??= createClient();
     // @ts-expect-error - forward động tới client thật
-    return _client[prop];
+    const value = _client[prop];
+    // Bind method về client thật: supabase-js dùng private (#) field và
+    // this-identity nội bộ, nếu trả method chưa bind thì `this` sẽ là Proxy
+    // và có thể ném lỗi runtime trên trình duyệt.
+    return typeof value === "function" ? value.bind(_client) : value;
   },
 });
 
 // Chống chạy generateDueRecurring chồng nhau (loadAll + addRecurring, hoặc
 // nhiều tab). Cờ ở module-level vì không cần kích hoạt render.
 let _generating = false;
+
+// Tiền tệ của một giao dịch phải theo ví sở hữu nó, KHÔNG theo baseCurrency:
+// một ví USD ghi giao dịch dưới VND sẽ làm sai số dư khi cộng gộp. Nếu không
+// tra được ví (hiếm), lùi về baseCurrency.
+function currencyForAccount(
+  accountId: string,
+  accounts: Account[],
+  baseCurrency: string
+): string {
+  return accounts.find((a) => a.id === accountId)?.currency ?? baseCurrency;
+}
 
 export const useStore = create<State>()((set, get) => ({
   userId: null,
@@ -109,46 +123,53 @@ export const useStore = create<State>()((set, get) => ({
   savingsGoals: [],
   loaded: false,
   loading: false,
+  loadError: false,
 
   loadAll: async () => {
     if (get().loading || get().loaded) return;
-    set({ loading: true });
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      set({ loading: false });
-      return;
+    set({ loading: true, loadError: false });
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        set({ loading: false });
+        return;
+      }
+
+      const [profileRes, accRes, catRes, txRes, budRes, trfRes, recRes, savRes] =
+        await Promise.all([
+          supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+          supabase.from("accounts").select("*").order("created_at"),
+          supabase.from("categories").select("*").order("created_at"),
+          supabase.from("transactions").select("*").order("date", { ascending: false }),
+          supabase.from("budgets").select("*").order("created_at"),
+          supabase.from("transfers").select("*").order("date", { ascending: false }),
+          supabase.from("recurring_rules").select("*").order("created_at"),
+          supabase.from("savings_goals").select("*").order("created_at"),
+        ]);
+
+      set({
+        userId: user.id,
+        baseCurrency: profileRes.data?.base_currency ?? "VND",
+        accounts: (accRes.data ?? []).map(toAccount),
+        categories: (catRes.data ?? []).map(toCategory),
+        transactions: (txRes.data ?? []).map(toTransaction),
+        budgets: (budRes.data ?? []).map(toBudget),
+        transfers: (trfRes.data ?? []).map(toTransfer),
+        recurringRules: (recRes.data ?? []).map(toRecurring),
+        savingsGoals: (savRes.data ?? []).map(toSavingsGoal),
+        loaded: true,
+        loading: false,
+      });
+
+      // Tự sinh các giao dịch định kỳ tới hạn (không chặn render).
+      get().generateDueRecurring();
+    } catch {
+      // Lỗi mạng/RLS/auth: thoát trạng thái loading và bật cờ lỗi để UI
+      // hiện nút thử lại, tránh kẹt spinner vĩnh viễn.
+      set({ loading: false, loadError: true });
     }
-
-    const [profileRes, accRes, catRes, txRes, budRes, trfRes, recRes, savRes] =
-      await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-        supabase.from("accounts").select("*").order("created_at"),
-        supabase.from("categories").select("*").order("created_at"),
-        supabase.from("transactions").select("*").order("date", { ascending: false }),
-        supabase.from("budgets").select("*").order("created_at"),
-        supabase.from("transfers").select("*").order("date", { ascending: false }),
-        supabase.from("recurring_rules").select("*").order("created_at"),
-        supabase.from("savings_goals").select("*").order("created_at"),
-      ]);
-
-    set({
-      userId: user.id,
-      baseCurrency: profileRes.data?.base_currency ?? "VND",
-      accounts: (accRes.data ?? []).map(toAccount),
-      categories: (catRes.data ?? []).map(toCategory),
-      transactions: (txRes.data ?? []).map(toTransaction),
-      budgets: (budRes.data ?? []).map(toBudget),
-      transfers: (trfRes.data ?? []).map(toTransfer),
-      recurringRules: (recRes.data ?? []).map(toRecurring),
-      savingsGoals: (savRes.data ?? []).map(toSavingsGoal),
-      loaded: true,
-      loading: false,
-    });
-
-    // Tự sinh các giao dịch định kỳ tới hạn (không chặn render).
-    get().generateDueRecurring();
   },
 
   // ---------- Transactions ----------
@@ -165,7 +186,7 @@ export const useStore = create<State>()((set, get) => ({
         account_id: t.accountId,
         category_id: t.categoryId,
         note: t.note ?? null,
-        currency: get().baseCurrency,
+        currency: currencyForAccount(t.accountId, get().accounts, get().baseCurrency),
       })
       .select()
       .single();
@@ -226,7 +247,7 @@ export const useStore = create<State>()((set, get) => ({
         account_id: t.accountId,
         category_id: t.categoryId,
         note: t.note ?? null,
-        currency: get().baseCurrency,
+        currency: currencyForAccount(t.accountId, get().accounts, get().baseCurrency),
         created_at: t.createdAt,
       })
       .select()
@@ -302,7 +323,7 @@ export const useStore = create<State>()((set, get) => ({
   // ---------- Categories ----------
   addCategory: async (c) => {
     const userId = get().userId;
-    if (!userId) return;
+    if (!userId) return false;
     const { data, error } = await supabase
       .from("categories")
       .insert({
@@ -317,9 +338,10 @@ export const useStore = create<State>()((set, get) => ({
       .single();
     if (error || !data) {
       toast.error("Không lưu được danh mục. Vui lòng thử lại.");
-      return;
+      return false;
     }
     set((s) => ({ categories: [...s.categories, toCategory(data)] }));
+    return true;
   },
   updateCategory: async (id, patch) => {
     const { data, error } = await supabase
@@ -330,11 +352,12 @@ export const useStore = create<State>()((set, get) => ({
       .single();
     if (error || !data) {
       toast.error("Không cập nhật được danh mục. Vui lòng thử lại.");
-      return;
+      return false;
     }
     set((s) => ({
       categories: s.categories.map((c) => (c.id === id ? toCategory(data) : c)),
     }));
+    return true;
   },
   deleteCategory: async (id) => {
     const { error } = await supabase.from("categories").delete().eq("id", id);
@@ -354,7 +377,7 @@ export const useStore = create<State>()((set, get) => ({
   // ---------- Budgets ----------
   addBudget: async (b) => {
     const userId = get().userId;
-    if (!userId) return;
+    if (!userId) return false;
     const { data, error } = await supabase
       .from("budgets")
       .insert({
@@ -367,9 +390,10 @@ export const useStore = create<State>()((set, get) => ({
       .single();
     if (error || !data) {
       toast.error("Không lưu được ngân sách. Vui lòng thử lại.");
-      return;
+      return false;
     }
     set((s) => ({ budgets: [...s.budgets, toBudget(data)] }));
+    return true;
   },
   updateBudget: async (id, patch) => {
     const { data, error } = await supabase
@@ -380,9 +404,10 @@ export const useStore = create<State>()((set, get) => ({
       .single();
     if (error || !data) {
       toast.error("Không cập nhật được ngân sách. Vui lòng thử lại.");
-      return;
+      return false;
     }
     set((s) => ({ budgets: s.budgets.map((b) => (b.id === id ? toBudget(data) : b)) }));
+    return true;
   },
   deleteBudget: async (id) => {
     const { error } = await supabase.from("budgets").delete().eq("id", id);
@@ -545,7 +570,7 @@ export const useStore = create<State>()((set, get) => ({
   },
 
   generateDueRecurring: async () => {
-    const { recurringRules, userId, baseCurrency } = get();
+    const { recurringRules, userId, baseCurrency, accounts } = get();
     if (!userId || recurringRules.length === 0) return;
     if (_generating) return;
     _generating = true;
@@ -582,7 +607,7 @@ export const useStore = create<State>()((set, get) => ({
             account_id: rule.accountId,
             category_id: rule.categoryId,
             note: rule.note ?? "Định kỳ",
-            currency: baseCurrency,
+            currency: currencyForAccount(rule.accountId, accounts, baseCurrency),
             source_rule_id: rule.id,
           });
           last = cursor;
@@ -598,13 +623,19 @@ export const useStore = create<State>()((set, get) => ({
 
       // upsert + ignoreDuplicates: unique (source_rule_id, date) ở DB chặn trùng
       // tận gốc nếu nhiều phiên cùng chạy; chỉ chèn các giao dịch chưa tồn tại.
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("transactions")
         .upsert(newRows, {
           onConflict: "source_rule_id,date",
           ignoreDuplicates: true,
         })
         .select();
+      if (error) {
+        // Sinh thất bại: KHÔNG cập nhật last_generated_date, nếu không client sẽ
+        // đánh dấu đã sinh tới ngày mà giao dịch chưa thực sự được ghi (desync).
+        toast.error("Không tạo được giao dịch định kỳ. Sẽ thử lại sau.");
+        return;
+      }
       await Promise.all(
         ruleUpdates.map((u) =>
           supabase
@@ -614,8 +645,15 @@ export const useStore = create<State>()((set, get) => ({
         )
       );
 
+      // Giao dịch sinh ra có thể mang ngày quá khứ (sinh bù từ lastGeneratedDate),
+      // nên phải sắp lại theo date desc — đồng nhất với restoreTransaction.
       set((s) => ({
-        transactions: [...(data ?? []).map(toTransaction), ...s.transactions],
+        transactions: [...(data ?? []).map(toTransaction), ...s.transactions].sort(
+          (a, b) =>
+            a.date === b.date
+              ? b.createdAt.localeCompare(a.createdAt)
+              : b.date.localeCompare(a.date)
+        ),
         recurringRules: s.recurringRules.map((r) => {
           const u = ruleUpdates.find((x) => x.id === r.id);
           return u ? { ...r, lastGeneratedDate: u.last } : r;
@@ -629,7 +667,7 @@ export const useStore = create<State>()((set, get) => ({
   // ---------- Savings Goals ----------
   addSavingsGoal: async (g) => {
     const userId = get().userId;
-    if (!userId) return;
+    if (!userId) return false;
     const { data, error } = await supabase
       .from("savings_goals")
       .insert({
@@ -644,9 +682,10 @@ export const useStore = create<State>()((set, get) => ({
       .single();
     if (error || !data) {
       toast.error("Không lưu được mục tiêu. Vui lòng thử lại.");
-      return;
+      return false;
     }
     set((s) => ({ savingsGoals: [...s.savingsGoals, toSavingsGoal(data)] }));
+    return true;
   },
   updateSavingsGoal: async (id, patch) => {
     const { data, error } = await supabase
@@ -663,11 +702,12 @@ export const useStore = create<State>()((set, get) => ({
       .single();
     if (error || !data) {
       toast.error("Không cập nhật được mục tiêu. Vui lòng thử lại.");
-      return;
+      return false;
     }
     set((s) => ({
       savingsGoals: s.savingsGoals.map((g) => (g.id === id ? toSavingsGoal(data) : g)),
     }));
+    return true;
   },
   deleteSavingsGoal: async (id) => {
     const { error } = await supabase.from("savings_goals").delete().eq("id", id);
@@ -728,6 +768,7 @@ export const useStore = create<State>()((set, get) => ({
       savingsGoals: [],
       loaded: false,
       loading: false,
+      loadError: false,
     }),
 }));
 

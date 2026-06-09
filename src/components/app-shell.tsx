@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   CalendarDays,
@@ -23,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/client";
 import { useStore } from "@/lib/store";
+import { toast } from "@/lib/toast";
 import { Loader2 } from "lucide-react";
 
 const nav = [
@@ -45,6 +47,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
   const loaded = useStore((s) => s.loaded);
+  const loadError = useStore((s) => s.loadError);
   const loadAll = useStore((s) => s.loadAll);
 
   const standalone = STANDALONE_PATHS.includes(pathname);
@@ -97,7 +100,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {open ? <X /> : <Menu />}
           </Button>
           <div className="flex items-center gap-2 lg:hidden">
-            <img src="/logo.png" alt="FluxMoney" className="size-6 rounded" />
+            <Image src="/logo.png" alt="FluxMoney" width={24} height={24} className="size-6 rounded" />
             <span className="font-semibold">FluxMoney</span>
           </div>
           <div className="ml-auto flex items-center gap-1">
@@ -107,6 +110,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 p-4 md:p-6">
           {loaded ? (
             children
+          ) : loadError ? (
+            <div className="flex h-[60vh] flex-col items-center justify-center gap-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Không tải được dữ liệu. Vui lòng kiểm tra kết nối và thử lại.
+              </p>
+              <Button onClick={() => loadAll()}>Thử lại</Button>
+            </div>
           ) : (
             <div className="flex h-[60vh] items-center justify-center">
               <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -123,15 +133,29 @@ function SidebarContent({ pathname }: { pathname: string }) {
   const [email, setEmail] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    let ignore = false;
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      setEmail(data.user?.email ?? null);
-    });
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (!ignore) setEmail(data.user?.email ?? null);
+      })
+      .catch(() => {
+        if (!ignore) setEmail(null);
+      });
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   async function signOut() {
     const supabase = createClient();
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      toast.error("Không đăng xuất được. Vui lòng thử lại.");
+      return;
+    }
     useStore.getState().clear();
     router.push("/login");
     router.refresh();
@@ -140,7 +164,7 @@ function SidebarContent({ pathname }: { pathname: string }) {
   return (
     <>
       <div className="flex h-14 items-center gap-2 border-b px-5">
-        <img src="/logo.png" alt="FluxMoney" className="size-7 rounded" />
+        <Image src="/logo.png" alt="FluxMoney" width={28} height={28} className="size-7 rounded" />
         <span className="text-lg font-bold tracking-tight">FluxMoney</span>
       </div>
       <nav className="flex flex-1 flex-col gap-1 p-3">

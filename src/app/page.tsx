@@ -21,7 +21,7 @@ import { DayDetailDialog } from "@/components/day-detail-dialog";
 import { StreakBadge } from "@/components/streak-badge";
 import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
-import { cn, formatCompact, formatCurrency, toDateKey } from "@/lib/utils";
+import { cn, formatCompact, formatCurrency, toDateKey, isSameMonthKey } from "@/lib/utils";
 import type { Transaction } from "@/lib/types";
 
 const WEEKDAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
@@ -62,8 +62,7 @@ export default function CalendarPage() {
     let income = 0;
     let expense = 0;
     for (const t of transactions) {
-      const d = new Date(t.date);
-      if (isSameMonth(d, cursor)) {
+      if (isSameMonthKey(t.date, cursor)) {
         if (t.type === "income") income += t.amount;
         else expense += t.amount;
       }

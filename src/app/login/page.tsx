@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,7 +32,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardContent className="flex flex-col items-center gap-6 p-8 text-center">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="FluxMoney" className="size-10 rounded-xl" />
+            <Image src="/logo.png" alt="FluxMoney" width={40} height={40} className="size-10 rounded-xl" />
             <span className="text-2xl font-bold tracking-tight">FluxMoney</span>
           </div>
           <div>

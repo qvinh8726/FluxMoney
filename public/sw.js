@@ -2,7 +2,8 @@
 // Cache shell cơ bản + xử lý push notification
 
 const CACHE_NAME = "fluxmoney-v1";
-const SHELL_URLS = ["/", "/icon.png"];
+// Chỉ pre-cache tài nguyên tĩnh, KHÔNG cache "/" (HTML điều hướng chứa dữ liệu).
+const SHELL_URLS = ["/icon.png"];
 
 // ---- Install: pre-cache shell ----
 // Dùng allSettled + cache.add từng URL: một asset thiếu (404) KHÔNG làm
@@ -34,32 +35,50 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// ---- Fetch: network-first, fallback cache ----
+// ---- Fetch: chỉ cache static shell assets ----
+// KHÔNG cache HTML điều hướng (trang /accounts, /transactions… chứa dữ liệu
+// tài chính cá nhân): trên máy chung hoặc sau khi đăng xuất, cache có thể
+// re-serve dữ liệu của user này cho người khác. Chỉ cache tài nguyên tĩnh
+// cùng origin (build assets, icon) để PWA chạy offline mà không lộ dữ liệu.
+function isStaticAsset(url) {
+  if (url.origin !== self.location.origin) return false;
+  return (
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname === "/icon.png" ||
+    url.pathname === "/logo.png" ||
+    url.pathname === "/manifest.webmanifest"
+  );
+}
+
 self.addEventListener("fetch", (event) => {
-  // Chỉ xử lý GET, bỏ qua supabase/api để tránh cache dữ liệu nhạy cảm
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
-  if (
-    url.pathname.startsWith("/api/") ||
-    url.hostname.includes("supabase.co") ||
-    url.pathname.startsWith("/login")
-  ) {
-    return;
-  }
+
+  // Chỉ áp dụng cache cho tài nguyên tĩnh; mọi thứ khác đi thẳng ra mạng.
+  if (!isStaticAsset(url)) return;
 
   event.respondWith(
-    fetch(event.request)
-      .then((res) => {
-        // Cache lại nếu thành công
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request).then((res) => {
         if (res && res.status === 200) {
           const clone = res.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return res;
-      })
-      .catch(() => caches.match(event.request))
+      });
+    })
   );
 });
+
+// Chỉ chấp nhận đường dẫn nội bộ same-origin để chống open-redirect/phishing
+// (payload push có thể bị giả mạo URL tuyệt đối ra ngoài). Trả về path an toàn.
+function safeInternalPath(raw) {
+  if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//")) {
+    return "/";
+  }
+  return raw;
+}
 
 // ---- Push: hiện notification ----
 self.addEventListener("push", (event) => {
@@ -75,7 +94,7 @@ self.addEventListener("push", (event) => {
     body: data.body ?? "Bạn có thông báo mới.",
     icon: "/icon.png",
     badge: "/icon.png",
-    data: { url: data.url ?? "/" },
+    data: { url: safeInternalPath(data.url) },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -84,14 +103,16 @@ self.addEventListener("push", (event) => {
 // ---- Notification click: mở/focus app ----
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url ?? "/";
+  const targetUrl = safeInternalPath(event.notification.data?.url);
+  // client.url là URL tuyệt đối; quy targetUrl về tuyệt đối để so khớp đúng.
+  const targetHref = new URL(targetUrl, self.location.origin).href;
 
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((clientList) => {
         for (const client of clientList) {
-          if (client.url === targetUrl && "focus" in client) {
+          if (client.url === targetHref && "focus" in client) {
             return client.focus();
           }
         }

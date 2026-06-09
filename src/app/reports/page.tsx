@@ -2,12 +2,12 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
-import { format, subMonths, isSameMonth } from "date-fns";
+import { format, subMonths } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, isSameMonthKey } from "@/lib/utils";
 
 const ChartFallback = () => (
   <div className="flex h-full w-full items-center justify-center">
@@ -39,7 +39,7 @@ export default function ReportsPage() {
       let income = 0;
       let expense = 0;
       for (const t of transactions) {
-        if (isSameMonth(new Date(t.date), m)) {
+        if (isSameMonthKey(t.date, m)) {
           if (t.type === "income") income += t.amount;
           else expense += t.amount;
         }
@@ -59,7 +59,7 @@ export default function ReportsPage() {
     const map = new Map<string, number>();
     for (const t of transactions) {
       if (t.type !== "expense") continue;
-      if (!isSameMonth(new Date(t.date), now)) continue;
+      if (!isSameMonthKey(t.date, now)) continue;
       const key = t.categoryId ?? "uncat";
       map.set(key, (map.get(key) ?? 0) + t.amount);
     }

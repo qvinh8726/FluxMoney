@@ -64,6 +64,7 @@ export async function POST() {
 
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) {
+    console.error("account/delete error:", error);
     return NextResponse.json(
       { ok: false, reason: "Không xóa được tài khoản. Vui lòng thử lại." },
       { status: 500 }

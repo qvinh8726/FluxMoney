@@ -40,7 +40,13 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
   // true khi user đã tự chọn danh mục → ẩn chip gợi ý
   const [userPickedCategory, setUserPickedCategory] = React.useState(false);
 
-  // Khởi tạo giá trị mỗi khi mở dialog.
+  // Đọc accounts qua ref để effect khởi tạo KHÔNG phụ thuộc mảng accounts:
+  // nếu phụ thuộc, một lần hydrate nền (loadAll) đổi reference accounts sẽ
+  // re-chạy effect và xóa sạch input user đang gõ dở.
+  const accountsRef = React.useRef(accounts);
+  accountsRef.current = accounts;
+
+  // Khởi tạo giá trị mỗi khi mở dialog (hoặc đổi giao dịch đang sửa).
   React.useEffect(() => {
     if (!open) return;
     if (editing) {
@@ -54,19 +60,18 @@ export function TransactionDialog({ open, onClose, editing, defaultDate }: Props
       setType("expense");
       setAmount("");
       setDate(defaultDate ?? vnTodayKey());
-      setAccountId(accounts[0]?.id ?? "");
+      setAccountId(accountsRef.current[0]?.id ?? "");
       setCategoryId("");
       setNote("");
     }
     setError(null);
-  }, [open, editing, defaultDate, accounts]);
+  }, [open, editing, defaultDate]);
 
   const visibleCategories = categories.filter((c) => c.type === type);
 
-  // Gợi ý danh mục dựa trên lịch sử — chỉ tính lại khi note/type thay đổi
+  // Gợi ý danh mục dựa trên lịch sử giao dịch và note/type đang nhập.
   const suggestions = React.useMemo(
     () => suggestCategories({ note, type }, transactions, categories, 3),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [note, type, transactions, categories]
   );
 

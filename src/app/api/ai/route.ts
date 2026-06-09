@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 
 // Giới hạn lượt phân tích sâu mỗi user mỗi ngày (tránh đốt credit khi public).
-const DAILY_LIMIT = Number(process.env.AI_DAILY_LIMIT || 20);
+// Phòng AI_DAILY_LIMIT phi số/không hợp lệ → NaN sẽ vô hiệu hóa rate-limit ngầm.
+const _parsedLimit = Number(process.env.AI_DAILY_LIMIT);
+const DAILY_LIMIT = Number.isFinite(_parsedLimit) && _parsedLimit > 0 ? _parsedLimit : 20;
 
 /**
  * Phân tích sâu bằng AI thật (tùy chọn).
@@ -102,6 +104,7 @@ export async function POST(req: Request) {
     if (!res.ok) {
       const text = await res.text();
       console.error("AI provider error:", res.status, text);
+      await supabase.rpc("refund_ai_usage");
       return NextResponse.json(
         { available: false, reason: `Lỗi từ nhà cung cấp AI (${res.status}).` },
         { status: 502 }
@@ -112,6 +115,7 @@ export async function POST(req: Request) {
     const content = data?.choices?.[0]?.message?.content ?? "";
     return NextResponse.json({ available: true, content, used: usage.used, limit: DAILY_LIMIT });
   } catch {
+    await supabase.rpc("refund_ai_usage");
     return NextResponse.json(
       { available: false, reason: "Không kết nối được tới dịch vụ AI." },
       { status: 502 }

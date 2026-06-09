@@ -33,6 +33,12 @@ export function TransferDialog({ open, onClose, editing, defaultDate }: Props) {
   const [note, setNote] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
 
+  // Đọc accounts qua ref để effect khởi tạo KHÔNG phụ thuộc mảng accounts:
+  // nếu phụ thuộc, một lần hydrate nền (loadAll) đổi reference accounts sẽ
+  // re-chạy effect và xóa sạch input user đang gõ dở.
+  const accountsRef = React.useRef(accounts);
+  accountsRef.current = accounts;
+
   React.useEffect(() => {
     if (!open) return;
     if (editing) {
@@ -42,14 +48,15 @@ export function TransferDialog({ open, onClose, editing, defaultDate }: Props) {
       setDate(editing.date);
       setNote(editing.note ?? "");
     } else {
-      setFromId(accounts[0]?.id ?? "");
-      setToId(accounts[1]?.id ?? accounts[0]?.id ?? "");
+      const accs = accountsRef.current;
+      setFromId(accs[0]?.id ?? "");
+      setToId(accs[1]?.id ?? accs[0]?.id ?? "");
       setAmount("");
       setDate(defaultDate ?? vnTodayKey());
       setNote("");
     }
     setError(null);
-  }, [open, editing, defaultDate, accounts]);
+  }, [open, editing, defaultDate]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

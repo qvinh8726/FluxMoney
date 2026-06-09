@@ -31,13 +31,11 @@ export default function SavingsPage() {
   const [editing, setEditing] = React.useState<SavingsGoal | null>(null);
   const [confirmId, setConfirmId] = React.useState<string | null>(null);
 
-  function handleSave(data: Omit<SavingsGoal, "id" | "createdAt">) {
-    if (editing) {
-      updateSavingsGoal(editing.id, data);
-    } else {
-      addSavingsGoal(data);
-    }
-    setOpen(false);
+  async function handleSave(data: Omit<SavingsGoal, "id" | "createdAt">) {
+    const ok = editing
+      ? await updateSavingsGoal(editing.id, data)
+      : await addSavingsGoal(data);
+    return ok;
   }
 
   function handleDelete(id: string) {
@@ -207,7 +205,7 @@ function SavingsGoalDialog({
   open: boolean;
   onClose: () => void;
   editing: SavingsGoal | null;
-  onSave: (data: Omit<SavingsGoal, "id" | "createdAt">) => void;
+  onSave: (data: Omit<SavingsGoal, "id" | "createdAt">) => Promise<boolean>;
 }) {
   const [name, setName] = React.useState("");
   const [targetAmount, setTargetAmount] = React.useState("");
@@ -215,6 +213,7 @@ function SavingsGoalDialog({
   const [deadline, setDeadline] = React.useState("");
   const [note, setNote] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+  const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
@@ -226,7 +225,7 @@ function SavingsGoalDialog({
     setError(null);
   }, [open, editing]);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
       setError("Vui lòng nhập tên mục tiêu.");
@@ -242,13 +241,18 @@ function SavingsGoalDialog({
       setError("Số tiền đã tiết kiệm không hợp lệ.");
       return;
     }
-    onSave({
+    setSaving(true);
+    const ok = await onSave({
       name: name.trim(),
       targetAmount: Math.round(target * 100) / 100,
       currentAmount: Math.round(current * 100) / 100,
       deadline: deadline || undefined,
       note: note.trim() || undefined,
     });
+    setSaving(false);
+    // Chỉ đóng khi lưu thành công; nếu lỗi, store đã hiện toast và giữ
+    // nguyên dialog để user không mất dữ liệu vừa nhập.
+    if (ok) onClose();
   }
 
   return (
@@ -317,7 +321,9 @@ function SavingsGoalDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             Hủy
           </Button>
-          <Button type="submit">{editing ? "Lưu" : "Thêm"}</Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Đang lưu…" : editing ? "Lưu" : "Thêm"}
+          </Button>
         </div>
       </form>
     </Dialog>

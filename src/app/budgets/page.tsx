@@ -45,7 +45,7 @@ export default function BudgetsPage() {
     [transactions]
   );
 
-  function save(data: Omit<Budget, "id" | "createdAt">) {
+  async function save(data: Omit<Budget, "id" | "createdAt">) {
     const dup = budgets.find(
       (b) =>
         b.id !== editing?.id &&
@@ -53,8 +53,10 @@ export default function BudgetsPage() {
         b.period === data.period
     );
     if (dup) return "Đã có ngân sách cho danh mục này trong cùng kỳ.";
-    if (editing) updateBudget(editing.id, data);
-    else addBudget(data);
+    const ok = editing
+      ? await updateBudget(editing.id, data)
+      : await addBudget(data);
+    if (!ok) return "Không lưu được ngân sách. Vui lòng thử lại.";
     setOpen(false);
     return null;
   }
@@ -193,12 +195,13 @@ function BudgetDialog({
   onClose: () => void;
   editing: Budget | null;
   categories: { id: string; name: string }[];
-  onSave: (data: Omit<Budget, "id" | "createdAt">) => string | null;
+  onSave: (data: Omit<Budget, "id" | "createdAt">) => Promise<string | null>;
 }) {
   const [categoryId, setCategoryId] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const [period, setPeriod] = React.useState<BudgetPeriod>("monthly");
   const [error, setError] = React.useState<string | null>(null);
+  const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
@@ -208,7 +211,7 @@ function BudgetDialog({
     setError(null);
   }, [open, editing, categories]);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     const value = parseMoneyInput(amount);
     if (!categoryId) {
@@ -219,11 +222,13 @@ function BudgetDialog({
       setError("Số tiền ngân sách phải từ 0,01 đến 999.999.999,99.");
       return;
     }
-    const err = onSave({
+    setSaving(true);
+    const err = await onSave({
       categoryId,
       amount: Math.round(value * 100) / 100,
       period,
     });
+    setSaving(false);
     if (err) setError(err);
   }
 
@@ -280,10 +285,12 @@ function BudgetDialog({
           </p>
         )}
         <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
             Hủy
           </Button>
-          <Button type="submit">{editing ? "Lưu" : "Thêm"}</Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Đang lưu…" : editing ? "Lưu" : "Thêm"}
+          </Button>
         </div>
       </form>
     </Dialog>

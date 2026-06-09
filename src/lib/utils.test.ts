@@ -24,11 +24,11 @@ describe("vnTodayKey", () => {
 });
 
 describe("formatCompact", () => {
-  it("rút gọn theo k / tr / T", () => {
+  it("rút gọn theo k / tr / tỷ", () => {
     expect(formatCompact(500)).toBe("500");
     expect(formatCompact(12_000)).toBe("12k");
     expect(formatCompact(1_500_000)).toBe("1.5tr");
-    expect(formatCompact(2_000_000_000)).toBe("2.0T");
+    expect(formatCompact(2_000_000_000)).toBe("2.0tỷ");
   });
 });
 

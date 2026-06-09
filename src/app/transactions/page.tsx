@@ -42,6 +42,9 @@ export default function TransactionsPage() {
   const accName = (id: string) => accounts.find((a) => a.id === id)?.name ?? "—";
 
   const items = React.useMemo<Item[]>(() => {
+    // Lookup cục bộ trong memo để dependency array chỉ cần `accounts`
+    // (react-hooks/exhaustive-deps): không đóng kín hàm accName bên ngoài.
+    const nameOf = (id: string) => accounts.find((a) => a.id === id)?.name ?? "—";
     const list: Item[] = [];
 
     if (typeFilter === "all" || typeFilter === "income" || typeFilter === "expense") {
@@ -49,7 +52,7 @@ export default function TransactionsPage() {
         if (typeFilter !== "all" && t.type !== typeFilter) continue;
         if (q.trim()) {
           const cat = categories.find((c) => c.id === t.categoryId)?.name ?? "";
-          const hay = `${cat} ${accName(t.accountId)} ${t.note ?? ""}`.toLowerCase();
+          const hay = `${cat} ${nameOf(t.accountId)} ${t.note ?? ""}`.toLowerCase();
           if (!hay.includes(q.toLowerCase())) continue;
         }
         list.push({ kind: "tx", date: t.date, createdAt: t.createdAt, tx: t });
@@ -59,7 +62,7 @@ export default function TransactionsPage() {
     if (typeFilter === "all" || typeFilter === "transfer") {
       for (const tr of transfers) {
         if (q.trim()) {
-          const hay = `chuyển khoản ${accName(tr.fromAccountId)} ${accName(
+          const hay = `chuyển khoản ${nameOf(tr.fromAccountId)} ${nameOf(
             tr.toAccountId
           )} ${tr.note ?? ""}`.toLowerCase();
           if (!hay.includes(q.toLowerCase())) continue;

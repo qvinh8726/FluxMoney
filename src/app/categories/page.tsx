@@ -27,7 +27,7 @@ export default function CategoriesPage() {
   const income = categories.filter((c) => c.type === "income");
   const expense = categories.filter((c) => c.type === "expense");
 
-  function save(data: Omit<Category, "id">) {
+  async function save(data: Omit<Category, "id">) {
     // Chống trùng tên cùng loại (không phân biệt hoa thường).
     const dup = categories.find(
       (c) =>
@@ -36,8 +36,10 @@ export default function CategoriesPage() {
         c.name.trim().toLowerCase() === data.name.trim().toLowerCase()
     );
     if (dup) return "Đã tồn tại danh mục cùng tên và cùng loại.";
-    if (editing) updateCategory(editing.id, data);
-    else addCategory(data);
+    const ok = editing
+      ? await updateCategory(editing.id, data)
+      : await addCategory(data);
+    if (!ok) return "Không lưu được danh mục. Vui lòng thử lại.";
     setOpen(false);
     return null;
   }
@@ -185,12 +187,13 @@ function CategoryDialog({
   open: boolean;
   onClose: () => void;
   editing: Category | null;
-  onSave: (data: Omit<Category, "id">) => string | null;
+  onSave: (data: Omit<Category, "id">) => Promise<string | null>;
 }) {
   const [name, setName] = React.useState("");
   const [type, setType] = React.useState<TxType>("expense");
   const [color, setColor] = React.useState("#F97316");
   const [error, setError] = React.useState<string | null>(null);
+  const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
@@ -200,14 +203,16 @@ function CategoryDialog({
     setError(null);
   }, [open, editing]);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = name.trim();
     if (trimmed.length < 1 || trimmed.length > 50) {
       setError("Tên danh mục phải từ 1 đến 50 ký tự.");
       return;
     }
-    const err = onSave({ name: trimmed, type, color, icon: "Tag" });
+    setSaving(true);
+    const err = await onSave({ name: trimmed, type, color, icon: "Tag" });
+    setSaving(false);
     if (err) setError(err);
   }
 
@@ -272,10 +277,12 @@ function CategoryDialog({
           </p>
         )}
         <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
             Hủy
           </Button>
-          <Button type="submit">{editing ? "Lưu" : "Thêm"}</Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Đang lưu…" : editing ? "Lưu" : "Thêm"}
+          </Button>
         </div>
       </form>
     </Dialog>

@@ -32,7 +32,16 @@ export async function POST(req: Request) {
   }
 
   const { endpoint, keys } = body;
-  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+  // Giá trị từ client là untrusted: kiểm tra kiểu trước khi gọi .startsWith/.length,
+  // tránh TypeError thoát ra ngoài try/catch thành 500 thay vì 400 sạch.
+  if (
+    typeof endpoint !== "string" ||
+    typeof keys?.p256dh !== "string" ||
+    typeof keys?.auth !== "string" ||
+    !endpoint ||
+    !keys.p256dh ||
+    !keys.auth
+  ) {
     return NextResponse.json(
       { ok: false, reason: "Thiếu thông tin subscription." },
       { status: 400 }
