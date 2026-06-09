@@ -12,7 +12,8 @@ export const config = {
      * - _next/static, _next/image (tài nguyên tĩnh)
      * - favicon, file ảnh
      * - /api (route API tự xử lý phiên riêng)
+     * - manifest.webmanifest, sw.js (asset PWA phải truy cập được khi chưa đăng nhập)
      */
-    "/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api|manifest.webmanifest|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
